@@ -1,0 +1,7 @@
+{
+  "name": "Podcast Ultra 0.2",
+  "description": "A feature-rich podcast and radio application featuring AI-powered summaries, smart discovery, and a global radio directory.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

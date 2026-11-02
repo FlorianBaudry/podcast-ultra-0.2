@@ -1,0 +1,81 @@
+name: PodcastUltra
+options:
+  bundleIdPrefix: com.podcastultra
+targets:
+  PodcastUltra:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: PodcastUltra-iOS
+    info:
+      path: PodcastUltra-iOS/Info.plist
+      properties:
+        CFBundleDisplayName: "Podcast Ultra"
+        BGTaskSchedulerPermittedIdentifiers:
+          - "com.podcastultra.app.refresh"
+          - "com.podcastultra.app.processing"
+        NSLocationWhenInUseUsageDescription: "Nous utilisons votre position pour vous afficher la météo locale en rafraîchissant les podcasts."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Nous utilisons votre position pour vous afficher la météo locale en rafraîchissant les podcasts."
+        NSLocalNetworkUsageDescription: "Podcast Ultra utilise votre réseau local pour découvrir et diffuser l'audio vers vos appareils Chromecast."
+        NSBonjourServices:
+          - "_googlecast._tcp"
+        UIBackgroundModes: ["audio", "location", "processing", "fetch"]
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIStatusBarHidden: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - podcastultra
+            CFBundleURLName: com.podcastultra.app
+    entitlements:
+      path: PodcastUltra-iOS/PodcastUltra.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.podcastultra.app
+    dependencies:
+      - target: PodcastUltraWidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.podcastultra.app
+        CODE_SIGN_ENTITLEMENTS: PodcastUltra-iOS/PodcastUltra.entitlements
+        DEVELOPMENT_TEAM: C7497KG2X3
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.music"
+        MARKETING_VERSION: 1.0.0
+        CURRENT_PROJECT_VERSION: 1
+        SWIFT_VERSION: "5.9"
+        DEVELOPMENT_ASSETS: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
+
+  PodcastUltraWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: PodcastUltraWidget
+    entitlements:
+      path: PodcastUltraWidget/PodcastUltraWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.podcastultra.app
+    info:
+      path: PodcastUltraWidget/Info.plist
+      properties:
+        CFBundleDisplayName: "Podcast Ultra"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.podcastultra.app.widget
+        CODE_SIGN_ENTITLEMENTS: PodcastUltraWidget/PodcastUltraWidget.entitlements
+        DEVELOPMENT_TEAM: C7497KG2X3
+        INFOPLIST_FILE: PodcastUltraWidget/Info.plist
+        SWIFT_VERSION: "5.9"

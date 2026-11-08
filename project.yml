@@ -24,6 +24,8 @@ targets:
         UIBackgroundModes: ["audio", "location", "processing", "fetch"]
         UILaunchScreen:
           UIColorName: LaunchBackground
+          UIImageName: LaunchImage
+          UIImageRespectsSafeAreaInsets: true
         UIStatusBarHidden: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

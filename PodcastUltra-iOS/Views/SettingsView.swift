@@ -50,9 +50,10 @@ struct SettingsView: View {
     @State private var isHelpSectionExpanded = false
     @State private var expandedHelpTopicId: String? = nil
     @State private var isKnowledgeWeatherExpanded = false
+    @State private var isSpotifySectionExpanded = false
     
     private let speeds = [0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0, 2.5]
-    private let accentColors = ["indigo", "blue", "emerald", "rose", "violet", "amber"]
+    private let accentColors = ["indigo", "blue", "cyan", "emerald", "mint", "amber", "gold", "coral", "rose", "violet"]
     
     var body: some View {
         ScrollView {
@@ -64,9 +65,6 @@ struct SettingsView: View {
                     .padding(.horizontal)
                 
                 VStack(spacing: 16) {
-                    // 0. Dedicated Weather Forecast Section at the Very Top
-                    WeeklyWeatherSettingsSection()
-                    
                     // 1. Language Picker
                     VStack(alignment: .leading, spacing: 8) {
                         Label(Translations.shared.t("language", storage.currentLanguage), systemImage: "globe")
@@ -90,25 +88,26 @@ struct SettingsView: View {
                     .cornerRadius(18)
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
                     
-                    // 2. Accent Colors
+                    // 2. Accent Colors (10 high-contrast choices)
                     VStack(alignment: .leading, spacing: 10) {
                         Label(Translations.shared.t("accent_color", storage.currentLanguage), systemImage: "paintpalette")
                             .font(.caption)
                             .fontWeight(.bold)
                             .foregroundColor(.secondary)
                         
-                        HStack(spacing: 12) {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 5), spacing: 12) {
                             ForEach(accentColors, id: \.self) { color in
                                 Circle()
                                     .fill(getColorForName(color))
-                                    .frame(width: 32, height: 32)
+                                    .frame(width: 34, height: 34)
                                     .overlay(
                                         Circle()
-                                            .stroke(storage.primaryTextColor, lineWidth: storage.settings.accentColor == color ? 2 : 0)
+                                            .stroke(storage.primaryTextColor, lineWidth: storage.settings.accentColor == color ? 2.5 : 0)
                                     )
                                     .scaleEffect(storage.settings.accentColor == color ? 1.15 : 1.0)
-                                    .opacity(storage.settings.accentColor == color ? 1.0 : 0.6)
+                                    .opacity(storage.settings.accentColor == color ? 1.0 : 0.72)
                                     .onTapGesture {
+                                        HapticManager.shared.trigger(.light)
                                         withAnimation {
                                             storage.settings.accentColor = color
                                         }
@@ -122,17 +121,63 @@ struct SettingsView: View {
                     .cornerRadius(18)
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
                     
-                    // 3. Themes
+                    // 3. Themes (8 readable themes with guaranteed contrast)
                     VStack(alignment: .leading, spacing: 10) {
                         Label(Translations.shared.t("theme", storage.currentLanguage), systemImage: "sun.max")
                             .font(.caption)
                             .fontWeight(.bold)
                             .foregroundColor(.secondary)
                         
-                        HStack(spacing: 12) {
-                            ThemeButton(id: "light", label: Translations.shared.t("theme_light", storage.currentLanguage), icon: "sun.max.fill")
-                            ThemeButton(id: "dark", label: Translations.shared.t("theme_dark", storage.currentLanguage), icon: "moon.fill")
-                            ThemeButton(id: "black", label: Translations.shared.t("theme_black", storage.currentLanguage), icon: "circle.fill")
+                        let isFr = storage.currentLanguage == .fr
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                            ThemeButton(
+                                id: "light",
+                                label: Translations.shared.t("theme_light", storage.currentLanguage),
+                                icon: "sun.max.fill",
+                                previewColor: Color(red: 248/255, green: 250/255, blue: 252/255)
+                            )
+                            ThemeButton(
+                                id: "cream",
+                                label: isFr ? "Sépia" : "Cream",
+                                icon: "book.fill",
+                                previewColor: Color(red: 249/255, green: 245/255, blue: 235/255)
+                            )
+                            ThemeButton(
+                                id: "dark",
+                                label: Translations.shared.t("theme_dark", storage.currentLanguage),
+                                icon: "moon.fill",
+                                previewColor: Color(red: 15/255, green: 23/255, blue: 42/255)
+                            )
+                            ThemeButton(
+                                id: "black",
+                                label: Translations.shared.t("theme_black", storage.currentLanguage),
+                                icon: "circle.fill",
+                                previewColor: Color.black
+                            )
+                            ThemeButton(
+                                id: "midnight",
+                                label: isFr ? "Bleu Nuit" : "Midnight",
+                                icon: "sparkles",
+                                previewColor: Color(red: 10/255, green: 20/255, blue: 45/255)
+                            )
+                            ThemeButton(
+                                id: "ocean",
+                                label: isFr ? "Océan" : "Ocean",
+                                icon: "water.waves",
+                                previewColor: Color(red: 8/255, green: 29/255, blue: 38/255)
+                            )
+                            ThemeButton(
+                                id: "forest",
+                                label: isFr ? "Forêt" : "Forest",
+                                icon: "leaf.fill",
+                                previewColor: Color(red: 11/255, green: 28/255, blue: 22/255)
+                            )
+                            ThemeButton(
+                                id: "bordeaux",
+                                label: isFr ? "Bordeaux" : "Bordeaux",
+                                icon: "drop.fill",
+                                previewColor: Color(red: 32/255, green: 12/255, blue: 22/255)
+                            )
                         }
                     }
                     .padding()
@@ -195,108 +240,101 @@ struct SettingsView: View {
                     .cornerRadius(18)
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
                     
-                    // 6. Spotify Library Import (OAuth 2.0 PKCE + Instant Spotify URL / Show Name Lookup)
-                    VStack(alignment: .leading, spacing: 14) {
-                        Label("Spotify", systemImage: "music.note")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.secondary)
-                        
-                        Text(Translations.shared.t("spotify_desc", storage.currentLanguage))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        // Method A: Instant import via Spotify Show Link(s) or Podcast Name(s) (No Client ID needed!)
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(storage.currentLanguage == .fr ? "Import rapide (Lien Spotify ou noms de podcasts)" : "Quick Import (Spotify Show URL or podcast names)")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(storage.primaryTextColor)
-                            
-                            HStack(spacing: 8) {
-                                TextField(
-                                    storage.currentLanguage == .fr ? "Collez un lien open.spotify.com/show/... ou nom" : "Paste open.spotify.com/show/... link or name",
-                                    text: $spotifyQuickQuery
-                                )
-                                .textFieldStyle(PlainTextFieldStyle())
-                                .padding(10)
-                                .background(storage.subtleSurfaceColor)
-                                .cornerRadius(10)
-                                .foregroundColor(storage.primaryTextColor)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                                
-                                Button(action: triggerQuickSpotifyImport) {
-                                    if isQuickImporting {
-                                        ProgressView()
-                                            .tint(.white)
-                                            .frame(width: 24, height: 24)
-                                    } else {
-                                        Image(systemName: "plus.circle.fill")
-                                            .font(.system(size: 18, weight: .bold))
-                                            .foregroundColor(.white)
-                                    }
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 10)
-                                .background(Color.green)
-                                .cornerRadius(10)
-                                .disabled(isQuickImporting || spotifyQuickQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    // 6. Spotify Quick Import (Minimized by default, no Full Account Sync)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Button(action: {
+                            HapticManager.shared.trigger(.light)
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                isSpotifySectionExpanded.toggle()
                             }
-                            
-                            Text(
-                                storage.currentLanguage == .fr
-                                ? "Astuce : collez directement un ou plusieurs liens Spotify (séparés par des virgules) ou titres de podcasts pour les ajouter à vos favoris sans configuration."
-                                : "Tip: paste one or more Spotify links (comma-separated) or podcast titles to add them to your favorites without setup."
-                            )
-                            .font(.system(size: 9))
-                            .foregroundColor(.secondary)
+                        }) {
+                            HStack(spacing: 10) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.green.opacity(0.16))
+                                        .frame(width: 32, height: 32)
+                                    Image(systemName: "music.note")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(.green)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Spotify")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(storage.primaryTextColor)
+                                    Text(storage.currentLanguage == .fr ? "Import rapide de podcasts par lien ou nom (touchez pour afficher)" : "Quick podcast import by URL or name (tap to expand)")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: isSpotifySectionExpanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(storage.accentColorColor())
+                            }
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(PlainButtonStyle())
                         
-                        Divider().background(storage.cardBorderColor)
-                        
-                        // Method B: Full Spotify Account Synchronization (OAuth 2.0 PKCE)
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(storage.currentLanguage == .fr ? "Synchronisation complète du compte (Spotify Client ID)" : "Full Account Sync (Spotify Client ID)")
-                                .font(.system(size: 11, weight: .bold))
+                        if isSpotifySectionExpanded {
+                            Divider()
+                                .background(storage.cardBorderColor)
+                                .padding(.vertical, 2)
+                            
+                            Text(Translations.shared.t("spotify_desc", storage.currentLanguage))
+                                .font(.caption)
                                 .foregroundColor(.secondary)
                             
-                            TextField("Ex: 4a2b3cd4...", text: $storage.settings.spotifyClientId)
-                                .textFieldStyle(PlainTextFieldStyle())
-                                .padding(10)
-                                .background(storage.subtleSurfaceColor)
-                                .cornerRadius(10)
-                                .foregroundColor(storage.primaryTextColor)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                            
-                            Text("Configurez 'podcastultra://spotify-callback' comme Redirect URI dans votre application sur le Spotify Developer Dashboard (flux OAuth 2.0 PKCE).")
+                            // Instant import via Spotify Show Link(s) or Podcast Name(s)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(storage.currentLanguage == .fr ? "Import rapide (Lien Spotify ou noms de podcasts)" : "Quick Import (Spotify Show URL or podcast names)")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(storage.primaryTextColor)
+                                
+                                HStack(spacing: 8) {
+                                    TextField(
+                                        storage.currentLanguage == .fr ? "Collez un lien open.spotify.com/show/... ou nom" : "Paste open.spotify.com/show/... link or name",
+                                        text: $spotifyQuickQuery
+                                    )
+                                    .textFieldStyle(PlainTextFieldStyle())
+                                    .padding(10)
+                                    .background(storage.subtleSurfaceColor)
+                                    .cornerRadius(10)
+                                    .foregroundColor(storage.primaryTextColor)
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.never)
+                                    
+                                    Button(action: triggerQuickSpotifyImport) {
+                                        if isQuickImporting {
+                                            ProgressView()
+                                                .tint(.white)
+                                                .frame(width: 24, height: 24)
+                                        } else {
+                                            Image(systemName: "plus.circle.fill")
+                                                .font(.system(size: 18, weight: .bold))
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(Color.green)
+                                    .cornerRadius(10)
+                                    .disabled(isQuickImporting || spotifyQuickQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                }
+                                
+                                Text(
+                                    storage.currentLanguage == .fr
+                                    ? "Astuce : collez directement un ou plusieurs liens Spotify (séparés par des virgules) ou titres de podcasts pour les ajouter à vos favoris sans configuration."
+                                    : "Tip: paste one or more Spotify links (comma-separated) or podcast titles to add them to your favorites without setup."
+                                )
                                 .font(.system(size: 9))
                                 .foregroundColor(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(.vertical, 2)
-                            
-                        Button(action: triggerSpotifyImport) {
-                            HStack {
-                                if isSpotifySyncing {
-                                    ProgressView()
-                                        .tint(.white)
-                                        .padding(.trailing, 4)
-                                } else {
-                                    Image(systemName: "arrow.down.circle")
-                                }
-                                Text(spotifyBtnText.isEmpty ? Translations.shared.t("spotify_connect", storage.currentLanguage) : spotifyBtnText)
                             }
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(isSpotifySyncing ? Color.gray : Color.green)
-                            .cornerRadius(12)
                         }
-                        .disabled(isSpotifySyncing)
                     }
-                    .padding()
+                    .padding(14)
                     .background(storage.cardBackgroundColor)
                     .cornerRadius(18)
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
@@ -485,7 +523,10 @@ struct SettingsView: View {
                             .background(Color.red.opacity(0.1))
                             .cornerRadius(12)
                     }
-                    .padding(.top, 10)
+                    .padding(.top, 6)
+                    
+                    // 11. Dedicated 5-Day Weather Forecast & Ephemeris Section at the Very Bottom
+                    WeeklyWeatherSettingsSection()
                 }
                 .padding(.horizontal)
             }
@@ -565,15 +606,19 @@ struct SettingsView: View {
     private func getColorForName(_ name: String) -> Color {
         switch name {
         case "blue": return .blue
+        case "cyan": return Color(red: 6/255, green: 182/255, blue: 212/255)
         case "emerald": return .emeraldCustom
+        case "mint": return Color(red: 20/255, green: 184/255, blue: 166/255)
         case "rose": return .rose
+        case "coral": return Color(red: 249/255, green: 115/255, blue: 22/255)
         case "violet": return .purple
         case "amber": return .orange
+        case "gold": return Color(red: 234/255, green: 179/255, blue: 8/255)
         default: return .indigo
         }
     }
     
-    // MARK: - Method A: Quick Spotify URL / Title Import (Zero-config)
+    // MARK: - Quick Spotify URL / Title Import (Zero-config)
     private func triggerQuickSpotifyImport() {
         let rawInput = spotifyQuickQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !rawInput.isEmpty else { return }
@@ -638,330 +683,53 @@ struct SettingsView: View {
             }
         }
     }
-    
-    // MARK: - Method B: Full Spotify OAuth 2.0 PKCE Library Sync
-    private func generateCodeVerifier() -> String {
-        let chars = Array("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
-        return String((0..<64).map { _ in chars.randomElement()! })
-    }
-    
-    private func generateCodeChallenge(from verifier: String) -> String {
-        let data = Data(verifier.utf8)
-        let digest = SHA256.hash(data: data)
-        return Data(digest)
-            .base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
-    }
-    
-    private func triggerSpotifyImport() {
-        let clientId = storage.settings.spotifyClientId.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !clientId.isEmpty else {
-            // If the user typed something in the quick import field, run that instead!
-            if !spotifyQuickQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                triggerQuickSpotifyImport()
-                return
-            }
-            spotifyAlertTitle = "Spotify"
-            spotifyAlertMessage = storage.currentLanguage == .fr
-                ? "Saisissez votre Spotify Client ID pour synchroniser tout votre compte, ou utilisez le champ « Import rapide » ci-dessus pour importer directement par lien Spotify ou nom."
-                : "Enter your Spotify Client ID for full account sync, or use the Quick Import field above."
-            showingSpotifyAlert = true
-            return
-        }
-        
-        let redirectURI = "podcastultra://spotify-callback"
-        let encodedRedirect = redirectURI.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? redirectURI
-        let scope = "user-library-read"
-        let codeVerifier = generateCodeVerifier()
-        let codeChallenge = generateCodeChallenge(from: codeVerifier)
-        
-        let authURLString = "https://accounts.spotify.com/authorize?client_id=\(clientId)&response_type=code&redirect_uri=\(encodedRedirect)&code_challenge_method=S256&code_challenge=\(codeChallenge)&scope=\(scope)&state=spotify_import"
-        guard let authURL = URL(string: authURLString) else { return }
-        
-        isSpotifySyncing = true
-        spotifyBtnText = storage.currentLanguage == .fr ? "Connexion Spotify..." : "Connecting Spotify..."
-        
-        let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: "podcastultra") { callbackURL, error in
-            guard error == nil, let callbackURL = callbackURL else {
-                DispatchQueue.main.async {
-                    self.isSpotifySyncing = false
-                    self.spotifyBtnText = self.storage.currentLanguage == .fr ? "Connexion Annulée" : "Connection Cancelled"
-                    self.resetButtonLater()
-                }
-                return
-            }
-            
-            // Support both Authorization Code PKCE (?code=...) and legacy Implicit Grant (#access_token=...)
-            let queryParams = parseQueryString(callbackURL.query ?? "")
-            let fragmentParams = parseQueryString(callbackURL.fragment ?? "")
-            
-            if let token = fragmentParams["access_token"] ?? queryParams["access_token"] {
-                runImportTask(accessToken: token)
-            } else if let code = queryParams["code"] {
-                exchangePKCECodeForToken(code: code, clientId: clientId, redirectURI: redirectURI, codeVerifier: codeVerifier)
-            } else {
-                DispatchQueue.main.async {
-                    self.isSpotifySyncing = false
-                    self.spotifyBtnText = "Erreur OAuth"
-                    self.resetButtonLater()
-                }
-            }
-        }
-        
-        session.presentationContextProvider = SpotifyAuthPresentationContextProvider.shared
-        session.prefersEphemeralWebBrowserSession = false
-        session.start()
-    }
-    
-    private func exchangePKCECodeForToken(code: String, clientId: String, redirectURI: String, codeVerifier: String) {
-        Task {
-            guard let tokenURL = URL(string: "https://accounts.spotify.com/api/token") else { return }
-            var request = URLRequest(url: tokenURL)
-            request.httpMethod = "POST"
-            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-            
-            let bodyParams = [
-                "client_id": clientId,
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": redirectURI,
-                "code_verifier": codeVerifier
-            ]
-            let bodyString = bodyParams.map { key, val in
-                let encVal = val.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? val
-                return "\(key)=\(encVal)"
-            }.joined(separator: "&")
-            request.httpBody = bodyString.data(using: .utf8)
-            
-            do {
-                let (data, response) = try await URLSession.shared.data(for: request)
-                guard let httpResponse = response as? HTTPURLResponse, (200..<300).contains(httpResponse.statusCode),
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let accessToken = json["access_token"] as? String else {
-                    await MainActor.run {
-                        self.isSpotifySyncing = false
-                        self.spotifyBtnText = "Erreur Token Spotify"
-                        self.resetButtonLater()
-                    }
-                    return
-                }
-                runImportTask(accessToken: accessToken)
-            } catch {
-                await MainActor.run {
-                    self.isSpotifySyncing = false
-                    self.spotifyBtnText = "Erreur Réseau"
-                    self.resetButtonLater()
-                }
-            }
-        }
-    }
-    
-    private func parseQueryString(_ query: String) -> [String: String] {
-        var results = [String: String]()
-        let keyValues = query.components(separatedBy: "&")
-        for keyValue in keyValues {
-            let parts = keyValue.components(separatedBy: "=")
-            if parts.count == 2 {
-                let val = parts[1].removingPercentEncoding ?? parts[1]
-                results[parts[0]] = val
-            }
-        }
-        return results
-    }
-    
-    private func runImportTask(accessToken: String) {
-        DispatchQueue.main.async {
-            self.spotifyBtnText = self.storage.currentLanguage == .fr ? "Lecture bibliothèque Spotify..." : "Reading Spotify library..."
-        }
-        
-        Task {
-            do {
-                struct SpotifyShowsResponse: Codable {
-                    let items: [SpotifyShowItem]?
-                    let next: String?
-                }
-                struct SpotifyShowItem: Codable {
-                    let show: SpotifyShow?
-                }
-                struct SpotifyEpisodesResponse: Codable {
-                    let items: [SpotifyEpisodeItem]?
-                    let next: String?
-                }
-                struct SpotifyEpisodeItem: Codable {
-                    let episode: SpotifyEpisodeObj?
-                }
-                struct SpotifyEpisodeObj: Codable {
-                    let show: SpotifyShow?
-                }
-                struct SpotifyShow: Codable, Hashable {
-                    let id: String?
-                    let name: String?
-                    let publisher: String?
-                }
-                
-                var shows: [SpotifyShow] = []
-                var seenNames = Set<String>()
-                
-                // 1. Fetch followed shows (/v1/me/shows)
-                var nextURLString: String? = "https://api.spotify.com/v1/me/shows?limit=50"
-                while let urlString = nextURLString, let showsURL = URL(string: urlString) {
-                    var request = URLRequest(url: showsURL)
-                    request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-                    
-                    let (data, response) = try await URLSession.shared.data(for: request)
-                    guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                        break
-                    }
-                    
-                    if let decoded = try? JSONDecoder().decode(SpotifyShowsResponse.self, from: data),
-                       let items = decoded.items {
-                        for item in items {
-                            if let s = item.show, let name = s.name, !name.isEmpty {
-                                let key = name.lowercased()
-                                if !seenNames.contains(key) {
-                                    seenNames.insert(key)
-                                    shows.append(s)
-                                }
-                            }
-                        }
-                        nextURLString = decoded.next
-                    } else {
-                        break
-                    }
-                }
-                
-                // 2. Also fetch saved episodes' shows (/v1/me/episodes) in case user saved episodes
-                if let epsURL = URL(string: "https://api.spotify.com/v1/me/episodes?limit=50") {
-                    var request = URLRequest(url: epsURL)
-                    request.addValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-                    if let (data, response) = try? await URLSession.shared.data(for: request),
-                       let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
-                       let decoded = try? JSONDecoder().decode(SpotifyEpisodesResponse.self, from: data),
-                       let items = decoded.items {
-                        for item in items {
-                            if let s = item.episode?.show, let name = s.name, !name.isEmpty {
-                                let key = name.lowercased()
-                                if !seenNames.contains(key) {
-                                    seenNames.insert(key)
-                                    shows.append(s)
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                if shows.isEmpty {
-                    await MainActor.run {
-                        spotifyBtnText = storage.currentLanguage == .fr ? "Aucun podcast trouvé" : "No podcasts found"
-                        isSpotifySyncing = false
-                        spotifyAlertTitle = "Spotify"
-                        spotifyAlertMessage = storage.currentLanguage == .fr
-                            ? "Aucun podcast suivi n'a été trouvé dans votre bibliothèque Spotify."
-                            : "No followed podcasts were found in your Spotify library."
-                        showingSpotifyAlert = true
-                        resetButtonLater()
-                    }
-                    return
-                }
-                
-                let country = storage.currentLanguage.itunes
-                var imported = [Podcast]()
-                
-                for (index, show) in shows.enumerated() {
-                    guard let name = show.name else { continue }
-                    await MainActor.run {
-                        spotifyBtnText = storage.currentLanguage == .fr
-                            ? "Correspondance (\(index + 1)/\(shows.count))..."
-                            : "Matching (\(index + 1)/\(shows.count))..."
-                    }
-                    if let matched = await APIService.shared.matchPodcastOnItunes(
-                        name: name,
-                        publisher: show.publisher,
-                        country: country
-                    ) {
-                        imported.append(matched)
-                    }
-                }
-                
-                await MainActor.run {
-                    for p in imported {
-                        if !storage.isFavoritePodcast(p.collectionId) {
-                            storage.toggleFavoritePodcast(p)
-                        }
-                    }
-                    
-                    spotifyBtnText = storage.currentLanguage == .fr ? "Import Réussi (\(imported.count)) !" : "Import Success (\(imported.count))!"
-                    isSpotifySyncing = false
-                    spotifyAlertTitle = storage.currentLanguage == .fr ? "Synchronisation terminée" : "Sync Complete"
-                    spotifyAlertMessage = storage.currentLanguage == .fr
-                        ? "\(imported.count) podcast(s) sur \(shows.count) ont été importés dans vos favoris !"
-                        : "\(imported.count) of \(shows.count) podcasts were imported to your favorites!"
-                    showingSpotifyAlert = true
-                    resetButtonLater()
-                }
-            } catch {
-                await MainActor.run {
-                    spotifyBtnText = "Erreur Import"
-                    isSpotifySyncing = false
-                    resetButtonLater()
-                }
-            }
-        }
-    }
-    
-    private func resetButtonLater() {
-        Task {
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
-            await MainActor.run {
-                spotifyBtnText = Translations.shared.t("spotify_connect", storage.currentLanguage)
-            }
-        }
-    }
 }
 
 struct ThemeButton: View {
     let id: String
     let label: String
     let icon: String
+    var previewColor: Color = .clear
     @ObservedObject var storage = LocalStorageManager.shared
     
     var body: some View {
+        let isSelected = storage.settings.theme == id
         Button(action: {
-            withAnimation {
+            HapticManager.shared.trigger(.light)
+            withAnimation(.easeInOut(duration: 0.2)) {
                 storage.settings.theme = id
             }
         }) {
             VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.subheadline)
-                    .foregroundColor(storage.settings.theme == id ? storage.accentColorColor() : .secondary)
+                ZStack {
+                    Circle()
+                        .fill(previewColor)
+                        .frame(width: 24, height: 24)
+                        .overlay(
+                            Circle()
+                                .stroke(isSelected ? storage.accentColorColor() : Color.secondary.opacity(0.35), lineWidth: 1.5)
+                        )
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor((id == "light" || id == "cream") ? Color(red: 15/255, green: 23/255, blue: 42/255) : .white)
+                }
                 Text(label)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(storage.settings.theme == id ? storage.primaryTextColor : .secondary)
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundColor(isSelected ? storage.primaryTextColor : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(storage.settings.theme == id ? storage.subtleSurfaceColor : Color.clear)
+            .padding(.vertical, 9)
+            .padding(.horizontal, 4)
+            .background(isSelected ? storage.accentColorColor().opacity(0.14) : storage.subtleSurfaceColor)
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(storage.settings.theme == id ? storage.accentColorColor().opacity(0.6) : storage.cardBorderColor, lineWidth: 1)
+                    .stroke(isSelected ? storage.accentColorColor() : storage.cardBorderColor, lineWidth: isSelected ? 1.5 : 1)
             )
         }
-    }
-}
-
-class SpotifyAuthPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
-    static let shared = SpotifyAuthPresentationContextProvider()
-    
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first(where: { $0.isKeyWindow }) {
-            return window
-        }
-        return ASPresentationAnchor()
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
@@ -974,7 +742,7 @@ struct AppGuideTopic: Identifiable {
     let details: [String]
 }
 
-// MARK: - Dedicated Top 7-Day Weather Forecast Section & Collapsible Recent Knowledge Section in Settings
+// MARK: - Dedicated Bottom 5-Day Weather Forecast & Ephemeris Section in Settings
 struct WeeklyWeatherSettingsSection: View {
     @ObservedObject var storage = LocalStorageManager.shared
     @ObservedObject var weatherService = WeatherService.shared
@@ -1013,11 +781,13 @@ struct WeeklyWeatherSettingsSection: View {
     
     var body: some View {
         let isFr = storage.currentLanguage == .fr
+        let zodiac = WeatherService.currentZodiacSign(isFrench: isFr)
+        let fete = WeatherService.feteDuJour()
         
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label(
-                    isFr ? "Météo • \(weatherService.cityName)" : "Weather • \(weatherService.cityName)",
+                    isFr ? "Météo 5 Jours • \(weatherService.cityName)" : "5-Day Weather • \(weatherService.cityName)",
                     systemImage: weatherService.weatherIcon
                 )
                 .font(.system(size: 12, weight: .black))
@@ -1032,38 +802,132 @@ struct WeeklyWeatherSettingsSection: View {
                 }
             }
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(Array(weatherService.weeklyForecast.prefix(7).enumerated()), id: \.element.id) { index, day in
-                        VStack(spacing: 6) {
-                            Text(formattedDayLabel(day.dateString, index: index))
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(index == 0 ? storage.accentColorColor() : .secondary)
-                                .lineLimit(1)
-                            
-                            Image(systemName: day.icon)
-                                .font(.system(size: 18))
-                                .foregroundColor(storage.accentColorColor())
-                                .frame(height: 22)
-                            
-                            VStack(spacing: 1) {
-                                Text("\(Int(round(day.tempMax)))°")
-                                    .font(.system(size: 12, weight: .black))
-                                    .foregroundColor(storage.primaryTextColor)
-                                Text("\(Int(round(day.tempMin)))°")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(.secondary)
-                            }
+            // 5-Day Forecast Row
+            HStack(spacing: 8) {
+                ForEach(Array(weatherService.weeklyForecast.prefix(5).enumerated()), id: \.element.id) { index, day in
+                    VStack(spacing: 6) {
+                        Text(formattedDayLabel(day.dateString, index: index))
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(index == 0 ? storage.accentColorColor() : .secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        
+                        Image(systemName: day.icon)
+                            .font(.system(size: 18))
+                            .foregroundColor(storage.accentColorColor())
+                            .frame(height: 22)
+                        
+                        VStack(spacing: 1) {
+                            Text("\(Int(round(day.tempMax)))°")
+                                .font(.system(size: 12, weight: .black))
+                                .foregroundColor(storage.primaryTextColor)
+                            Text("\(Int(round(day.tempMin)))°")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.secondary)
                         }
-                        .frame(width: 58)
-                        .padding(.vertical, 10)
-                        .background(index == 0 ? storage.accentColorColor().opacity(0.12) : storage.subtleSurfaceColor)
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(index == 0 ? storage.accentColorColor().opacity(0.4) : storage.cardBorderColor, lineWidth: 1)
-                        )
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(index == 0 ? storage.accentColorColor().opacity(0.12) : storage.subtleSurfaceColor)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(index == 0 ? storage.accentColorColor().opacity(0.4) : storage.cardBorderColor, lineWidth: 1)
+                    )
+                }
+            }
+            
+            // Ephemeris Grid: Sunrise/Sunset, Fête du jour, Signe Astral
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    // Lever du soleil
+                    HStack(spacing: 6) {
+                        Image(systemName: "sunrise.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(.orange)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(isFr ? "Lever" : "Sunrise")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.secondary)
+                            Text(weatherService.sunriseTimeString)
+                                .font(.system(size: 11.5, weight: .black))
+                                .foregroundColor(storage.primaryTextColor)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(storage.subtleSurfaceColor)
+                    .cornerRadius(10)
+                    
+                    // Coucher du soleil
+                    HStack(spacing: 6) {
+                        Image(systemName: "sunset.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(.pink)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(isFr ? "Coucher" : "Sunset")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.secondary)
+                            Text(weatherService.sunsetTimeString)
+                                .font(.system(size: 11.5, weight: .black))
+                                .foregroundColor(storage.primaryTextColor)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(storage.subtleSurfaceColor)
+                    .cornerRadius(10)
+                }
+                
+                HStack(spacing: 8) {
+                    // Fête du jour
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 13))
+                            .foregroundColor(storage.accentColorColor())
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(isFr ? "Fête du jour" : "Name Day")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.secondary)
+                            Text("St(e) \(fete)")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(storage.primaryTextColor)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(storage.subtleSurfaceColor)
+                    .cornerRadius(10)
+                    
+                    // Signe astral en cours
+                    HStack(spacing: 6) {
+                        Text(zodiac.symbol)
+                            .font(.system(size: 15))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(isFr ? "Signe astral" : "Zodiac Sign")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundColor(.secondary)
+                            Text(zodiac.name)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(storage.primaryTextColor)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(storage.subtleSurfaceColor)
+                    .cornerRadius(10)
                 }
             }
         }

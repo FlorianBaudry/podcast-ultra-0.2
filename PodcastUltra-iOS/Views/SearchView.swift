@@ -40,7 +40,42 @@ struct SearchView: View {
     @State private var isLoading = false
     @State private var searchTask: Task<Void, Never>? = nil
     @State private var dragOffset: CGFloat = 0
+    @State private var selectedPodcastForNavigation: Podcast? = nil
+    @State private var selectedIsAudiobookForNavigation: Bool = false
+    @State private var isNavigatingToEpisodeList: Bool = false
     @FocusState private var isSearchFieldFocused: Bool
+    
+    private static var shortDateFormatters: [String: DateFormatter] = [:]
+    
+    private static func shortDateFormatter(for langCode: String) -> DateFormatter {
+        if let existing = shortDateFormatters[langCode] {
+            return existing
+        }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: langCode)
+        df.dateStyle = .medium
+        df.timeStyle = .none
+        shortDateFormatters[langCode] = df
+        return df
+    }
+    
+    private func formattedLastEpisodeDate(for item: Podcast) -> String? {
+        let rawDate = storage.effectiveReleaseDateString(for: item) ?? item.releaseDate
+        guard let date = DateFormatterUtility.parse(rawDate) else { return nil }
+        let df = Self.shortDateFormatter(for: storage.currentLanguage.rawValue)
+        return df.string(from: date)
+    }
+    
+    private func sortedByMostRecent(_ list: [Podcast]) -> [Podcast] {
+        return list.sorted { a, b in
+            let dateA = DateFormatterUtility.parse(storage.effectiveReleaseDateString(for: a) ?? a.releaseDate) ?? .distantPast
+            let dateB = DateFormatterUtility.parse(storage.effectiveReleaseDateString(for: b) ?? b.releaseDate) ?? .distantPast
+            if dateA != dateB {
+                return dateA > dateB
+            }
+            return a.collectionName.localizedCaseInsensitiveCompare(b.collectionName) == .orderedAscending
+        }
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -172,7 +207,7 @@ struct SearchView: View {
                     Spacer()
                 } else {
                     List {
-                        // 1. Podcasts Source Section
+                        // 1. Podcasts Source Section (sorted by most recent first)
                         if showPodcasts {
                             Section(
                                 header: HStack(spacing: 6) {
@@ -182,7 +217,7 @@ struct SearchView: View {
                                 .font(.headline)
                                 .foregroundColor(storage.accentColorColor())
                             ) {
-                                ForEach(searchResults.podcasts) { podcast in
+                                ForEach(sortedByMostRecent(searchResults.podcasts)) { podcast in
                                     searchResultRow(
                                         item: podcast,
                                         sourceType: .podcasts
@@ -193,7 +228,7 @@ struct SearchView: View {
                             .listRowSeparatorTint(storage.cardBorderColor)
                         }
                         
-                        // 2. Culture Source Section
+                        // 2. Culture Source Section (sorted by most recent first)
                         if showCulture {
                             Section(
                                 header: HStack(spacing: 6) {
@@ -203,7 +238,7 @@ struct SearchView: View {
                                 .font(.headline)
                                 .foregroundColor(storage.accentColorColor())
                             ) {
-                                ForEach(searchResults.culture) { item in
+                                ForEach(sortedByMostRecent(searchResults.culture)) { item in
                                     searchResultRow(
                                         item: item,
                                         sourceType: .culture
@@ -214,7 +249,7 @@ struct SearchView: View {
                             .listRowSeparatorTint(storage.cardBorderColor)
                         }
                         
-                        // 3. Enfant Source Section
+                        // 3. Enfant Source Section (sorted by most recent first)
                         if showEnfants {
                             Section(
                                 header: HStack(spacing: 6) {
@@ -224,7 +259,7 @@ struct SearchView: View {
                                 .font(.headline)
                                 .foregroundColor(storage.accentColorColor())
                             ) {
-                                ForEach(searchResults.enfants) { item in
+                                ForEach(sortedByMostRecent(searchResults.enfants)) { item in
                                     searchResultRow(
                                         item: item,
                                         sourceType: .enfants
@@ -316,6 +351,11 @@ struct SearchView: View {
                 self.isLoading = false
             }
         }
+        .navigationDestination(isPresented: $isNavigatingToEpisodeList) {
+            if let podcast = selectedPodcastForNavigation {
+                EpisodeListView(podcast: podcast, isAudiobook: selectedIsAudiobookForNavigation)
+            }
+        }
     }
     
     private func sourceCount(for filter: SearchSourceFilter) -> Int? {
@@ -345,86 +385,106 @@ struct SearchView: View {
                 return storage.isFavoriteSubscription(item.collectionId, in: .enfants)
             }
         }()
+        let lastEpisodeDateText = formattedLastEpisodeDate(for: item)
         
-        NavigationLink(destination: EpisodeListView(podcast: item, isAudiobook: isAudiobookView)) {
-            HStack(spacing: 12) {
-                if sourceType == .culture {
-                    SubscriptionArtworkView(book: item, section: .culture)
-                        .frame(width: 48, height: 48)
-                        .cornerRadius(10)
-                        .clipped()
-                } else if sourceType == .enfants {
-                    SubscriptionArtworkView(book: item, section: .enfants)
-                        .frame(width: 48, height: 48)
-                        .cornerRadius(10)
-                        .clipped()
-                } else {
-                    CachedAsyncImage(url: URL(string: item.artworkUrl100 ?? item.artworkUrl600 ?? ""), maxPixelSize: 160) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color.primary.opacity(0.07)
-                    }
-                    .frame(width: 48, height: 48)
-                    .cornerRadius(10)
-                    .clipped()
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text(
-                            sourceType == .podcasts
-                            ? "PODCAST"
-                            : (item.source?.uppercased() ?? sourceType.title(for: storage.currentLanguage).uppercased())
-                        )
-                        .font(.system(size: 8.5, weight: .black))
-                        .foregroundColor(storage.accentColorColor())
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(storage.accentColorColor().opacity(0.14))
-                        .cornerRadius(5)
-                        
-                        if let durationText = item.formattedTotalDuration {
-                            Text(durationText)
-                                .font(.system(size: 9.5, weight: .bold))
-                                .foregroundColor(.secondary)
+        HStack(spacing: 12) {
+            Button(action: {
+                isSearchFieldFocused = false
+                selectedPodcastForNavigation = item
+                selectedIsAudiobookForNavigation = isAudiobookView
+                isNavigatingToEpisodeList = true
+            }) {
+                HStack(spacing: 12) {
+                    if sourceType == .culture {
+                        SubscriptionArtworkView(book: item, section: .culture)
+                            .frame(width: 48, height: 48)
+                            .cornerRadius(10)
+                            .clipped()
+                    } else if sourceType == .enfants {
+                        SubscriptionArtworkView(book: item, section: .enfants)
+                            .frame(width: 48, height: 48)
+                            .cornerRadius(10)
+                            .clipped()
+                    } else {
+                        CachedAsyncImage(url: URL(string: item.artworkUrl100 ?? item.artworkUrl600 ?? ""), maxPixelSize: 160) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Color.primary.opacity(0.07)
                         }
+                        .frame(width: 48, height: 48)
+                        .cornerRadius(10)
+                        .clipped()
                     }
                     
-                    Text(item.collectionName)
-                        .font(.system(size: 13.5, weight: .bold))
-                        .foregroundColor(storage.primaryTextColor)
-                        .lineLimit(2)
-                    
-                    Text(item.artistName)
-                        .font(.system(size: 10.5))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-                
-                Spacer()
-                
-                Button(action: {
-                    HapticManager.shared.trigger(.medium)
-                    switch sourceType {
-                    case .podcasts, .all:
-                        storage.toggleFavoritePodcast(item)
-                    case .culture:
-                        storage.toggleFavoriteSubscription(item, section: .culture)
-                    case .enfants:
-                        storage.toggleFavoriteSubscription(item, section: .enfants)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text(
+                                sourceType == .podcasts
+                                ? "PODCAST"
+                                : (item.source?.uppercased() ?? sourceType.title(for: storage.currentLanguage).uppercased())
+                            )
+                            .font(.system(size: 8.5, weight: .black))
+                            .foregroundColor(storage.accentColorColor())
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(storage.accentColorColor().opacity(0.14))
+                            .cornerRadius(5)
+                            
+                            if let dateStr = lastEpisodeDateText {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "calendar")
+                                        .font(.system(size: 8.5, weight: .bold))
+                                    Text(dateStr)
+                                        .font(.system(size: 9.5, weight: .semibold))
+                                        .lineLimit(1)
+                                }
+                                .foregroundColor(.secondary)
+                            }
+                            
+                            if let durationText = item.formattedTotalDuration {
+                                Text(durationText)
+                                    .font(.system(size: 9.5, weight: .bold))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Text(item.collectionName)
+                            .font(.system(size: 13.5, weight: .bold))
+                            .foregroundColor(storage.primaryTextColor)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                        
+                        Text(item.artistName)
+                            .font(.system(size: 10.5))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
                     }
-                }) {
-                    Image(systemName: isFavorited ? "heart.fill" : "heart")
-                        .foregroundColor(isFavorited ? .red : .secondary)
-                        .padding(6)
+                    
+                    Spacer(minLength: 4)
                 }
-                .buttonStyle(PlainButtonStyle())
+                .contentShape(Rectangle())
             }
+            .buttonStyle(PlainButtonStyle())
+            
+            Button(action: {
+                HapticManager.shared.trigger(.medium)
+                switch sourceType {
+                case .podcasts, .all:
+                    storage.toggleFavoritePodcast(item)
+                case .culture:
+                    storage.toggleFavoriteSubscription(item, section: .culture)
+                case .enfants:
+                    storage.toggleFavoriteSubscription(item, section: .enfants)
+                }
+            }) {
+                Image(systemName: isFavorited ? "heart.fill" : "heart")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(isFavorited ? .red : .secondary)
+                    .padding(8)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
         }
-        .simultaneousGesture(TapGesture().onEnded {
-            isSearchFieldFocused = false
-            onClose?()
-        })
     }
     
     private func performSearch(term: String, debounce: Bool = false) {

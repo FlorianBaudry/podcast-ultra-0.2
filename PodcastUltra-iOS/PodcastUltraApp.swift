@@ -4,7 +4,7 @@ import BackgroundTasks
 @main
 struct PodcastUltraApp: App {
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var audioPlayer = AudioPlayerManager.shared
+    @ObservedObject private var audioPlayer = AudioPlayerManager.shared
     @ObservedObject private var storage = LocalStorageManager.shared
     
     private let backgroundRefreshTaskId = "com.podcastultra.app.refresh"

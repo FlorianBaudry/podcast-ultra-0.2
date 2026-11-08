@@ -317,9 +317,6 @@
 					016C19433274A9F8696789E3 = {
 						DevelopmentTeam = C7497KG2X3;
 					};
-					1104A4289102B31B18674F73 = {
-						DevelopmentTeam = C7497KG2X3;
-					};
 					94D4AFB5D9DFA589A961739B = {
 						DevelopmentTeam = C7497KG2X3;
 					};
@@ -641,7 +638,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = "PodcastUltra-iOS/PodcastUltra.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSETS = "";
 				INFOPLIST_FILE = "PodcastUltra-iOS/Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
@@ -650,7 +647,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.podcastultra.app;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
@@ -665,8 +662,9 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = "PodcastUltra-iOS/PodcastUltra.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSETS = "";
+				DEVELOPMENT_TEAM = C7497KG2X3;
 				INFOPLIST_FILE = "PodcastUltra-iOS/Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -674,7 +672,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.podcastultra.app;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;

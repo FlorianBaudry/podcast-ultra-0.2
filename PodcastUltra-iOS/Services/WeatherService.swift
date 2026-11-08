@@ -24,6 +24,8 @@ struct WeatherData: Decodable {
         let weathercode: [Int]?
         let temperature_2m_max: [Double]?
         let temperature_2m_min: [Double]?
+        let sunrise: [String]?
+        let sunset: [String]?
     }
 }
 
@@ -34,6 +36,8 @@ final class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegat
     @Published var weatherDescription: String
     @Published var weatherIcon: String
     @Published var cityName: String
+    @Published var sunriseTimeString: String
+    @Published var sunsetTimeString: String
     @Published var weeklyForecast: [DailyWeatherForecast] = []
     
     private let locationManager = CLLocationManager()
@@ -45,6 +49,8 @@ final class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegat
         self.weatherDescription = UserDefaults.standard.string(forKey: "voxstream_weather_desc") ?? "Partiellement nuageux"
         self.weatherIcon = UserDefaults.standard.string(forKey: "voxstream_weather_icon") ?? "cloud.sun.fill"
         self.cityName = UserDefaults.standard.string(forKey: "voxstream_weather_city") ?? "Paris"
+        self.sunriseTimeString = UserDefaults.standard.string(forKey: "voxstream_weather_sunrise") ?? "07:45"
+        self.sunsetTimeString = UserDefaults.standard.string(forKey: "voxstream_weather_sunset") ?? "17:20"
         super.init()
         if let savedWeeklyData = UserDefaults.standard.data(forKey: "voxstream_weather_weekly"),
            let decoded = try? JSONDecoder().decode([DailyWeatherForecast].self, from: savedWeeklyData),
@@ -55,10 +61,13 @@ final class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegat
         }
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
-        // Trigger initial weather fetch (using cached/fallback coordinates immediately while GPS resolves)
-        let lat = UserDefaults.standard.object(forKey: "voxstream_weather_lat") as? Double ?? 48.8566
-        let lon = UserDefaults.standard.object(forKey: "voxstream_weather_lon") as? Double ?? 2.3522
-        fetchWeather(latitude: lat, longitude: lon)
+        // Deferred background weather fetch so app launch is never delayed
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self = self else { return }
+            let lat = UserDefaults.standard.object(forKey: "voxstream_weather_lat") as? Double ?? 48.8566
+            let lon = UserDefaults.standard.object(forKey: "voxstream_weather_lon") as? Double ?? 2.3522
+            self.fetchWeather(latitude: lat, longitude: lon)
+        }
     }
     
     func requestLocation() {
@@ -95,7 +104,7 @@ final class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegat
     }
     
     private func fetchWeather(latitude: Double, longitude: Double) {
-        guard let url = URL(string: "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7") else { return }
+        guard let url = URL(string: "https://api.open-meteo.com/v1/forecast?latitude=\(latitude)&longitude=\(longitude)&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=5") else { return }
         hasFetchedThisSession = true
         
         Task {
@@ -104,31 +113,51 @@ final class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegat
                 let response = try JSONDecoder().decode(WeatherData.self, from: data)
                 
                 var parsedForecast: [DailyWeatherForecast] = []
-                if let daily = response.daily,
-                   let times = daily.time,
-                   let codes = daily.weathercode,
-                   let maxs = daily.temperature_2m_max,
-                   let mins = daily.temperature_2m_min {
-                    let count = min(7, min(times.count, min(codes.count, min(maxs.count, mins.count))))
-                    for i in 0..<count {
-                        let code = codes[i]
-                        parsedForecast.append(DailyWeatherForecast(
-                            dateString: times[i],
-                            weatherCode: code,
-                            tempMax: maxs[i],
-                            tempMin: mins[i],
-                            icon: Self.iconForWeatherCode(code)
-                        ))
+                var resolvedSunrise: String? = nil
+                var resolvedSunset: String? = nil
+                
+                if let daily = response.daily {
+                    if let firstRise = daily.sunrise?.first {
+                        resolvedSunrise = Self.extractHourMinute(from: firstRise)
+                    }
+                    if let firstSet = daily.sunset?.first {
+                        resolvedSunset = Self.extractHourMinute(from: firstSet)
+                    }
+                    if let times = daily.time,
+                       let codes = daily.weathercode,
+                       let maxs = daily.temperature_2m_max,
+                       let mins = daily.temperature_2m_min {
+                        let count = min(5, min(times.count, min(codes.count, min(maxs.count, mins.count))))
+                        for i in 0..<count {
+                            let code = codes[i]
+                            parsedForecast.append(DailyWeatherForecast(
+                                dateString: times[i],
+                                weatherCode: code,
+                                tempMax: maxs[i],
+                                tempMin: mins[i],
+                                icon: Self.iconForWeatherCode(code)
+                            ))
+                        }
                     }
                 }
                 
-                let resolvedForecast = parsedForecast
+                let finalForecast = parsedForecast
+                let finalSunrise = resolvedSunrise
+                let finalSunset = resolvedSunset
                 await MainActor.run {
                     self.temperature = response.current_weather.temperature
                     self.parseWeatherCode(response.current_weather.weathercode)
-                    if !resolvedForecast.isEmpty {
-                        self.weeklyForecast = resolvedForecast
-                        if let encoded = try? JSONEncoder().encode(resolvedForecast) {
+                    if let rise = finalSunrise, !rise.isEmpty {
+                        self.sunriseTimeString = rise
+                        UserDefaults.standard.set(rise, forKey: "voxstream_weather_sunrise")
+                    }
+                    if let set = finalSunset, !set.isEmpty {
+                        self.sunsetTimeString = set
+                        UserDefaults.standard.set(set, forKey: "voxstream_weather_sunset")
+                    }
+                    if !finalForecast.isEmpty {
+                        self.weeklyForecast = finalForecast
+                        if let encoded = try? JSONEncoder().encode(finalForecast) {
                             UserDefaults.standard.set(encoded, forKey: "voxstream_weather_weekly")
                         }
                     }
@@ -140,6 +169,14 @@ final class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegat
                 // Keep cached/default weather values so UI is always visible
             }
         }
+    }
+    
+    private static func extractHourMinute(from isoString: String) -> String {
+        if let tRange = isoString.range(of: "T") {
+            let afterT = String(isoString[tRange.upperBound...])
+            return String(afterT.prefix(5))
+        }
+        return isoString
     }
     
     static func iconForWeatherCode(_ code: Int) -> String {
@@ -162,10 +199,10 @@ final class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegat
         let df = DateFormatter()
         df.locale = Locale(identifier: "en_US_POSIX")
         df.dateFormat = "yyyy-MM-dd"
-        let sampleCodes = [1, 0, 2, 61, 1, 0, 2]
-        let sampleMax: [Double] = [20, 22, 19, 17, 19, 21, 22]
-        let sampleMin: [Double] = [12, 13, 11, 10, 11, 12, 13]
-        return (0..<7).map { offset in
+        let sampleCodes = [1, 0, 2, 61, 1]
+        let sampleMax: [Double] = [20, 22, 19, 17, 19]
+        let sampleMin: [Double] = [12, 13, 11, 10, 11]
+        return (0..<5).map { offset in
             let d = cal.date(byAdding: .day, value: offset, to: today) ?? today
             let code = sampleCodes[offset % sampleCodes.count]
             return DailyWeatherForecast(
@@ -176,6 +213,77 @@ final class WeatherService: NSObject, ObservableObject, CLLocationManagerDelegat
                 icon: iconForWeatherCode(code)
             )
         }
+    }
+    
+    // MARK: - Ephemeris Helpers: Zodiac Sign & French Saint / Fête du Jour
+    static func currentZodiacSign(for date: Date = Date(), isFrench: Bool = true) -> (symbol: String, name: String) {
+        let comps = Calendar.current.dateComponents([.month, .day], from: date)
+        let m = comps.month ?? 1
+        let d = comps.day ?? 1
+        let md = m * 100 + d
+        
+        switch md {
+        case 321...419:
+            return ("♈︎", isFrench ? "Bélier" : "Aries")
+        case 420...520:
+            return ("♉︎", isFrench ? "Taureau" : "Taurus")
+        case 521...620:
+            return ("♊︎", isFrench ? "Gémeaux" : "Gemini")
+        case 621...722:
+            return ("♋︎", isFrench ? "Cancer" : "Cancer")
+        case 723...822:
+            return ("♌︎", isFrench ? "Lion" : "Leo")
+        case 823...922:
+            return ("♍︎", isFrench ? "Vierge" : "Virgo")
+        case 923...1022:
+            return ("♎︎", isFrench ? "Balance" : "Libra")
+        case 1023...1121:
+            return ("♏︎", isFrench ? "Scorpion" : "Scorpio")
+        case 1122...1221:
+            return ("♐︎", isFrench ? "Sagittaire" : "Sagittarius")
+        case 120...218:
+            return ("♒︎", isFrench ? "Verseau" : "Aquarius")
+        case 219...320:
+            return ("♓︎", isFrench ? "Poissons" : "Pisces")
+        default:
+            return ("♑︎", isFrench ? "Capricorne" : "Capricorn")
+        }
+    }
+    
+    static func feteDuJour(for date: Date = Date()) -> String {
+        let comps = Calendar.current.dateComponents([.month, .day], from: date)
+        let m = comps.month ?? 1
+        let d = comps.day ?? 1
+        guard m >= 1 && m <= 12, d >= 1 && d <= 31 else { return "Saint du jour" }
+        let table: [[String]] = [
+            // 1. Janvier
+            ["Jour de l'An", "Basile", "Geneviève", "Odilon", "Édouard", "Mélaine", "Raymond", "Lucien", "Alix", "Guillaume", "Paulin", "Tatiana", "Yvette", "Nina", "Rémi", "Marcel", "Roseline", "Prisca", "Marius", "Sébastien", "Agnès", "Vincent", " Barnard", "François de Sales", "Conversion de Paul", "Paule", "Angèle", "Thomas d'Aquin", "Gildas", "Martine", "Marcelle"],
+            // 2. Février
+            ["Ella", "Présentation", "Blaise", "Véronique", "Agathe", "Gaston", "Eugénie", "Jacqueline", "Apolline", "Arnaud", "N.-D. de Lourdes", "Félix", "Béatrice", "Valentin", "Claude", "Julienne", "Alexis", "Bernadette", "Gabin", "Aimée", "Pierre-Damien", "Isabelle", "Lazare", "Modeste", "Roméo", "Nestor", "Honorine", "Romain", "Auguste"],
+            // 3. Mars
+            ["Aubin", "Charles le Bon", "Guénolé", "Casimir", "Olive", "Colette", "Félicité", "Jean de Dieu", "Françoise", "Vivien", "Rosine", "Justine", "Rodrigue", "Mathilde", "Louise", "Bénédicte", "Patrice", "Cyrille", "Joseph", "Printemps", "Clémence", "Léa", "Victorien", "Catherine de Suède", "Annonciation", "Larissa", "Habib", "Gontran", "Gwladys", "Amédée", "Benjamin"],
+            // 4. Avril
+            ["Hugues", "Sandrine", "Richard", "Isidore", "Irène", "Marcellin", "Jean-Baptiste de la Salle", "Julie", "Gautier", "Fulbert", "Stanislas", "Jules", "Ida", "Maxime", "Paterne", "Benoît-Joseph", "Anicet", "Parfait", "Emma", "Odette", "Anselme", "Alexandre", "Georges", "Fidèle", "Marc", "Alida", "Zita", "Valérie", "Catherine de Sienne", "Robert"],
+            // 5. Mai
+            ["Fête du Travail", "Boris", "Philippe", "Sylvain", "Judith", "Prudence", "Gisèle", "Victoire 1945", "Pacôme", "Solange", "Estelle", "Achille", "Rolande", "Matthias", "Denise", "Honoré", "Pascal", "Éric", "Yves", "Bernardin", "Constantin", "Émile", "Didier", "Donatien", "Sophie", "Bérenger", "Augustin", "Germain", "Aymar", "Ferdinand", "Visitation"],
+            // 6. Juin
+            ["Justin", "Blandine", "Kévin", "Clotilde", "Igor", "Norbert", "Gilbert", "Médard", "Diane", "Landry", "Barnabé", "Guy", "Antoine de Padoue", "Élisée", "Germaine", "Jean-François Régis", "Hervé", "Léonce", "Romuald", "Silvère", "Été • Rodolphe", "Alban", "Audrey", "Jean-Baptiste", "Prosper", "Anthelme", "Fernand", "Irénée", "Pierre et Paul", "Martial"],
+            // 7. Juillet
+            ["Thierry", "Martinien", "Thomas", "Florent", "Antoine", "Mariette", "Raoul", "Thibaut", "Amandine", "Ulrich", "Benoît", "Olivier", "Henri et Joël", "Fête Nationale • Camille", "Donald", "N.-D. du Mont-Carmel", "Charlotte", "Frédéric", "Arsène", "Marina", "Victor", "Marie-Madeleine", "Brigitte", "Christine", "Jacques", "Anne et Joachim", "Nathalie", "Samson", "Marthe", "Juliette", "Ignace de Loyola"],
+            // 8. Août
+            ["Alphonse", "Julien Eymard", "Lydie", "Jean-Marie Vianney", "Abel", "Transfiguration", "Gaétan", "Dominique", "Amour", "Laurent", "Claire", "Clarisse", "Hippolyte", "Évrard", "Assomption • Marie", "Armel", "Hyacinthe", "Hélène", "Jean Eudes", "Bernard", "Christophe", "Fabrice", "Rose de Lima", "Barthélemy", "Louis", "Natacha", "Monique", "Augustin", "Sabine", "Fiacre", "Aristide"],
+            // 9. Septembre
+            ["Gilles", "Ingrid", "Grégoire", "Rosalie", "Raïssa", "Bertrand", "Reine", "Nativité", "Alain", "Inès", "Adelphe", "Apollinaire", "Aimé", "La Sainte-Croix", "Roland", "Édith", "Renaud", "Nadège", "Émilie", "Davy", "Matthieu", "Maurice", "Automne • Constant", "Thècle", "Hermann", "Côme et Damien", "Vincent de Paul", "Venceslas", "Michel", "Jérôme"],
+            // 10. Octobre
+            ["Thérèse de l'Enfant-Jésus", "Léger", "Gérard", "François d'Assise", "Fleur", "Bruno", "Serge", "Pélagie", "Denis", "Ghislain", "Firmin", "Wilfried", "Géraud", "Juste", "Thérèse d'Avila", "Edwige", "Baudouin", "Luc", "René", "Adeline", "Céline", "Élodie", "Jean de Capistran", "Florentin", "Crépin", "Dimitri", "Émeline", "Simon et Jude", "Narcisse", "Bienvenue", "Quentin"],
+            // 11. Novembre
+            ["Toussaint", "Défunts", "Hubert", "Charles", "Sylvie", "Bertille", "Carine", "Geoffroy", "Théodore", "Léon", "Armistice • Martin", "Christian", "Brice", "Sidoine", "Albert", "Marguerite", "Élisabeth", "Aude", "Tanguy", "Edmond", "Prés. de Marie", "Cécile", "Clément", "Flora", "Catherine", "Delphine", "Sévrin", "Jacques de la Marche", "Saturnin", "André"],
+            // 12. Décembre
+            ["Florence", "Viviane", "François-Xavier", "Barbara", "Gérald", "Nicolas", "Ambroise", "Immaculée Conception", "Pierre Fourier", "Romaric", "Daniel", "Jeanne-Françoise", "Lucie", "Odile", "Ninon", "Alice", "Gaël", "Gatien", "Urbain", "Théophile", "Hiver • Pierre Canisius", "Françoise-Xavière", "Armand", "Adèle", "Noël", "Étienne", "Jean", "Innocents", "David", "Roger", "Sylvestre"]
+        ]
+        let monthArr = table[m - 1]
+        let idx = min(d - 1, monthArr.count - 1)
+        return monthArr[idx].trimmingCharacters(in: .whitespaces)
     }
     
     private func resolveCityName(location: CLLocation) {

@@ -10,8 +10,9 @@ struct AppSettingsModel: Codable {
     var skipIntro: Bool = true
     var deleteAfterListening: Bool = false
     var longestPerDayOnly: Bool = true
-    var accentColor: String = "indigo" // indigo, blue, emerald, rose, violet, amber
-    var theme: String = "dark" // light, dark, black
+    var accentColor: String = "indigo" // indigo, blue, emerald, rose, violet, amber, cyan, coral, mint, gold
+    var theme: String = "dark" // light, cream, dark, black, midnight, forest, bordeaux, ocean
+    var fontChoice: String = "system" // system, rounded, serif, mono, avenir, gill, georgia, palatino,utura,chalkboard
     var spotifyClientId: String = ""
     var autoDownloadLatest: Bool = false
     
@@ -22,6 +23,7 @@ struct AppSettingsModel: Codable {
         longestPerDayOnly: Bool = true,
         accentColor: String = "indigo",
         theme: String = "dark",
+        fontChoice: String = "system",
         spotifyClientId: String = "",
         autoDownloadLatest: Bool = false
     ) {
@@ -31,6 +33,7 @@ struct AppSettingsModel: Codable {
         self.longestPerDayOnly = longestPerDayOnly
         self.accentColor = accentColor
         self.theme = theme
+        self.fontChoice = fontChoice
         self.spotifyClientId = spotifyClientId
         self.autoDownloadLatest = autoDownloadLatest
     }
@@ -43,6 +46,7 @@ struct AppSettingsModel: Codable {
         self.longestPerDayOnly = try container.decodeIfPresent(Bool.self, forKey: .longestPerDayOnly) ?? true
         self.accentColor = try container.decodeIfPresent(String.self, forKey: .accentColor) ?? "indigo"
         self.theme = try container.decodeIfPresent(String.self, forKey: .theme) ?? "dark"
+        self.fontChoice = try container.decodeIfPresent(String.self, forKey: .fontChoice) ?? "system"
         self.spotifyClientId = try container.decodeIfPresent(String.self, forKey: .spotifyClientId) ?? ""
         self.autoDownloadLatest = try container.decodeIfPresent(Bool.self, forKey: .autoDownloadLatest) ?? false
     }
@@ -453,7 +457,8 @@ class LocalStorageManager: ObservableObject {
                   let loadedLang = LangCode(rawValue: decodedStr) {
             self.currentLanguage = loadedLang
         } else {
-            self.currentLanguage = .en
+            let deviceCode = Locale.preferredLanguages.first?.prefix(2).lowercased() ?? "fr"
+            self.currentLanguage = LangCode(rawValue: String(deviceCode)) ?? .fr
         }
         
         // Load favorite audiobooks
@@ -463,12 +468,13 @@ class LocalStorageManager: ObservableObject {
             loadedBooks = loaded
         }
         
-        // Load favorites and separate any audiobooks or kids/enfants items so each section stays clean
+        // Load favorites and separate any audiobooks so each section stays clean
+        // (Avoid calling Self.isKidsOrEnfantsItem inside init() because accessing LocalStorageManager.shared inside LocalStorageManager.init() deadlocks dispatch_once!)
         if let data = UserDefaults.standard.data(forKey: "voxstream_favs_v2"),
            let loaded = try? JSONDecoder().decode([Podcast].self, from: data) {
             var purePodcasts: [Podcast] = []
             for item in loaded {
-                if Self.isAudiobookItem(item) && !Self.isKidsOrEnfantsItem(item) {
+                if Self.isAudiobookItem(item) {
                     if !loadedBooks.contains(where: { $0.collectionId == item.collectionId }) {
                         loadedBooks.append(item)
                     }
@@ -649,7 +655,8 @@ class LocalStorageManager: ObservableObject {
         if podcast.collectionId >= 40_000_000 && podcast.collectionId < 60_000_000 {
             return true
         }
-        if let mapped = LocalStorageManager.shared.subscriptionSectionMap[podcast.collectionId],
+        if LocalStorageManager.shared.isInitialized,
+           let mapped = LocalStorageManager.shared.subscriptionSectionMap[podcast.collectionId],
            mapped == SubscriptionSection.enfants.rawValue {
             return true
         }
@@ -699,7 +706,8 @@ class LocalStorageManager: ObservableObject {
            (podcast.collectionId >= 50_000_000 && podcast.collectionId < 100_000_000) {
             return true
         }
-        if let mapped = LocalStorageManager.shared.subscriptionSectionMap[podcast.collectionId],
+        if LocalStorageManager.shared.isInitialized,
+           let mapped = LocalStorageManager.shared.subscriptionSectionMap[podcast.collectionId],
            mapped == SubscriptionSection.culture.rawValue || mapped == SubscriptionSection.livres.rawValue {
             return true
         }
@@ -1468,36 +1476,60 @@ class LocalStorageManager: ObservableObject {
         }
     }
     
-    // MARK: - Theme & Accent Color Helpers
+    // MARK: - Theme, Font & Accent Color Helpers
     var isLightTheme: Bool {
-        settings.theme == "light"
+        settings.theme == "light" || settings.theme == "cream"
     }
     
     var primaryTextColor: Color {
-        isLightTheme ? Color(red: 15/255, green: 23/255, blue: 42/255) : .white
+        switch settings.theme {
+        case "light":
+            return Color(red: 15/255, green: 23/255, blue: 42/255)
+        case "cream":
+            return Color(red: 36/255, green: 28/255, blue: 21/255)
+        default:
+            return .white
+        }
     }
     
     var mainBackgroundColor: Color {
         switch settings.theme {
         case "light":
             return Color(red: 248/255, green: 250/255, blue: 252/255) // Slate-50
+        case "cream":
+            return Color(red: 250/255, green: 245/255, blue: 235/255) // Sépia / Papier Chaud
         case "black":
-            return Color.black
+            return Color.black // OLED Noir Pur
+        case "midnight":
+            return Color(red: 8/255, green: 18/255, blue: 42/255) // Bleu Nuit Profond
+        case "forest":
+            return Color(red: 6/255, green: 24/255, blue: 18/255) // Vert Forêt Sombre
+        case "bordeaux":
+            return Color(red: 28/255, green: 9/255, blue: 18/255) // Bordeaux / Prune Sombre
+        case "ocean":
+            return Color(red: 6/255, green: 23/255, blue: 33/255) // Océan Abyssal
         default:
-            return Color(red: 2/255, green: 6/255, blue: 23/255) // Slate-950
+            return Color(red: 2/255, green: 6/255, blue: 23/255) // Slate-950 (Sombre)
         }
     }
     
     var cardBackgroundColor: Color {
-        isLightTheme ? Color.white : Color.white.opacity(0.04)
+        switch settings.theme {
+        case "light":
+            return Color.white
+        case "cream":
+            return Color(red: 255/255, green: 252/255, blue: 245/255)
+        default:
+            return Color.white.opacity(0.055)
+        }
     }
     
     var subtleSurfaceColor: Color {
-        isLightTheme ? Color.black.opacity(0.05) : Color.white.opacity(0.07)
+        isLightTheme ? Color.black.opacity(0.055) : Color.white.opacity(0.08)
     }
     
     var cardBorderColor: Color {
-        isLightTheme ? Color.black.opacity(0.08) : Color.white.opacity(0.06)
+        isLightTheme ? Color.black.opacity(0.09) : Color.white.opacity(0.08)
     }
     
     func accentColorColor() -> Color {
@@ -1507,7 +1539,36 @@ class LocalStorageManager: ObservableObject {
         case "rose": return .rose
         case "violet": return .purple
         case "amber": return .orange
+        case "cyan": return Color(red: 6/255, green: 182/255, blue: 212/255)
+        case "coral": return Color(red: 249/255, green: 115/255, blue: 22/255)
+        case "mint": return Color(red: 20/255, green: 184/255, blue: 166/255)
+        case "gold": return Color(red: 234/255, green: 179/255, blue: 8/255)
         default: return .indigo
+        }
+    }
+    
+    func appFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        switch settings.fontChoice {
+        case "rounded":
+            return .system(size: size, weight: weight, design: .rounded)
+        case "serif":
+            return .system(size: size, weight: weight, design: .serif)
+        case "mono":
+            return .system(size: size, weight: weight, design: .monospaced)
+        case "avenir":
+            return .custom("AvenirNext-Medium", size: size)
+        case "gill":
+            return .custom("GillSans", size: size)
+        case "georgia":
+            return .custom("Georgia", size: size)
+        case "palatino":
+            return .custom("Palatino-Roman", size: size)
+        case "futura":
+            return .custom("Futura-Medium", size: size)
+        case "chalkboard":
+            return .custom("ChalkboardSE-Regular", size: size)
+        default:
+            return .system(size: size, weight: weight, design: .default)
         }
     }
     

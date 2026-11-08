@@ -2829,10 +2829,25 @@ class APIService {
             }
         }
         
+        // Sort each section by most recent episode releaseDate first
+        let latestDatesSnapshot = await MainActor.run { LocalStorageManager.shared.podcastLatestEpisodeDates }
+        func sortByMostRecent(_ items: [Podcast]) -> [Podcast] {
+            return items.sorted { a, b in
+                let rawA = latestDatesSnapshot[a.collectionId] ?? a.releaseDate
+                let rawB = latestDatesSnapshot[b.collectionId] ?? b.releaseDate
+                let dateA = DateFormatterUtility.parse(rawA) ?? .distantPast
+                let dateB = DateFormatterUtility.parse(rawB) ?? .distantPast
+                if dateA != dateB {
+                    return dateA > dateB
+                }
+                return a.collectionName.localizedCaseInsensitiveCompare(b.collectionName) == .orderedAscending
+            }
+        }
+        
         // Register section mappings so favoriting from Search routes to the right Favoris section
-        let finalCulture = Array(cultureList.prefix(35))
-        let finalEnfants = Array(enfantsList.prefix(35))
-        let finalPodcasts = Array(podcastsList.prefix(40))
+        let finalCulture = Array(sortByMostRecent(cultureList).prefix(35))
+        let finalEnfants = Array(sortByMostRecent(enfantsList).prefix(35))
+        let finalPodcasts = Array(sortByMostRecent(podcastsList).prefix(40))
         
         await MainActor.run {
             LocalStorageManager.shared.registerSubscriptionSection(.culture, for: finalCulture)

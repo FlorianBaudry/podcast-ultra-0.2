@@ -37,16 +37,21 @@ struct ContentView: View {
                         }
                         
                         // Main View Content switcher: Favoris, Découvrir, Radio, Paramètres
+                        // Deferred until after the first frame so the launch logo appears in <16ms on first app open
                         Group {
-                            switch selectedTab {
-                            case .podcasts:
-                                EpisodesView()
-                            case .radio:
-                                RadioView()
-                            case .audiobooks:
-                                AudiobooksView()
-                            case .settings:
-                                SettingsView()
+                            if !showLaunchScreen {
+                                switch selectedTab {
+                                case .podcasts:
+                                    EpisodesView()
+                                case .radio:
+                                    RadioView()
+                                case .audiobooks:
+                                    AudiobooksView()
+                                case .settings:
+                                    SettingsView()
+                                }
+                            } else {
+                                Color.clear
                             }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -90,9 +95,9 @@ struct ContentView: View {
         .preferredColorScheme(storage.isLightTheme ? .light : .dark)
         .tint(storage.accentColorColor())
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
                 if showLaunchScreen {
-                    withAnimation(.easeInOut(duration: 0.4)) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
                         showLaunchScreen = false
                     }
                 }

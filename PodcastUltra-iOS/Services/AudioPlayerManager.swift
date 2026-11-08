@@ -1024,18 +1024,75 @@ class AudioPlayerManager: NSObject, ObservableObject, AVPlayerItemMetadataOutput
         }
     }
     
+    private static func isNumericOrTechnicalToken(_ raw: String) -> Bool {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+        
+        // Count alphabetic letters vs digits
+        var letterCount = 0
+        var digitCount = 0
+        for ch in trimmed {
+            if ch.isLetter {
+                letterCount += 1
+            } else if ch.isNumber {
+                digitCount += 1
+            }
+        }
+        
+        // Reject if fewer than 2 letters, or if digits outnumber letters
+        if letterCount < 2 || digitCount > letterCount {
+            return true
+        }
+        
+        let lower = trimmed.lowercased()
+        let ignoredExactOrPrefix = [
+            "unknown", "null", "undefined", "streamtitle", "adswizz",
+            "spot pub", "publicité", "publicite", "jingle", "default",
+            "live", "direct", "audio", "aac", "mp3", "icecast", "shoutcast",
+            "id=", "track_", "cart_", "spot_", " auto ", "none", "n/a"
+        ]
+        if ignoredExactOrPrefix.contains(where: { lower == $0 || lower.hasPrefix($0) }) {
+            return true
+        }
+        
+        // Reject UUIDs or hex-like technical IDs (e.g. "a1b2c3d4-e5f6...")
+        if trimmed.range(of: "^[0-9a-fA-F\\-_:\\.]{6,}$", options: .regularExpression) != nil {
+            return true
+        }
+        
+        return false
+    }
+    
     private static func cleanRadioMetadataString(_ input: String) -> String {
         var text = input
             .replacingOccurrences(of: "StreamTitle='", with: "")
+            .replacingOccurrences(of: "StreamUrl='", with: "")
             .replacingOccurrences(of: "';", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if text.hasPrefix("'") && text.hasSuffix("'") && text.count > 2 {
             text = String(text.dropFirst().dropLast())
         }
-        // Filter out technical placeholders or ad markers
-        let lower = text.lowercased()
-        let ignoredTokens = ["unknown", "null", "undefined", "streamtitle", "adswizz", "spot pub", "publicité", "publicite", "jingle"]
-        if ignoredTokens.contains(where: { lower == $0 || lower.hasPrefix("adswizz") }) {
+        
+        // Remove leading or trailing bracketed/parenthesized numeric codes like "[00145]" or "(128)"
+        text = text.replacingOccurrences(of: "^\\[?[0-9:\\-_\\.]+\\]?\\s*[-–—•|:]?\\s*", with: "", options: .regularExpression)
+        text = text.replacingOccurrences(of: "\\s*[-–—•|:]\\s*\\[?[0-9:\\-_\\.]{2,}\\]?$", with: "", options: .regularExpression)
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Split around common separators (" - ", " — ", " • ", " / ", " | ") and drop purely numeric/technical segments
+        let separators = [" — ", " - ", " – ", " • ", " | "]
+        for sep in separators where text.contains(sep) {
+            let parts = text
+                .components(separatedBy: sep)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !isNumericOrTechnicalToken($0) }
+            if parts.isEmpty {
+                return ""
+            }
+            text = parts.joined(separator: " — ")
+            break
+        }
+        
+        if isNumericOrTechnicalToken(text) {
             return ""
         }
         return text
@@ -1131,24 +1188,44 @@ class AudioPlayerManager: NSObject, ObservableObject, AVPlayerItemMetadataOutput
             activeStepDicts = Array(steps.values)
         }
         
-        // Prefer track/song metadata (authors + title) or show/episode title
+        // Sort active steps so more specific/shorter-duration items (songs, segments) are inspected systematically
+        activeStepDicts.sort { a, b in
+            let startA = (a["start"] as? Double) ?? Double((a["start"] as? Int) ?? 0)
+            let endA = (a["end"] as? Double) ?? Double((a["end"] as? Int) ?? 0)
+            let startB = (b["start"] as? Double) ?? Double((b["start"] as? Int) ?? 0)
+            let endB = (b["end"] as? Double) ?? Double((b["end"] as? Int) ?? 0)
+            let durA = endA > startA ? (endA - startA) : Double.greatestFiniteMagnitude
+            let durB = endB > startB ? (endB - startB) : Double.greatestFiniteMagnitude
+            return durA < durB
+        }
+        
+        // Prefer track/song metadata (authors + title) or show/episode title, ignoring any numeric/technical IDs
         var songTitle: String?
         var showTitle: String?
         
         for step in activeStepDicts {
-            let title = (step["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let rawTitle = (step["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let title = cleanRadioMetadataString(rawTitle)
             guard !title.isEmpty else { continue }
-            let authors = (step["authors"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            let rawAuthors = (step["authors"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
                 ?? (step["performers"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
                 ?? ""
+            let authors = isNumericOrTechnicalToken(rawAuthors) ? "" : rawAuthors
             let visualType = (step["visualType"] as? String)?.lowercased() ?? ""
+            let embedType = (step["embedType"] as? String)?.lowercased() ?? ""
             
             if !authors.isEmpty && !title.localizedCaseInsensitiveContains(authors) {
-                songTitle = "\(authors) — \(title)"
-            } else if visualType.contains("song") || step[" songId"] != nil || step["discNumber"] != nil {
-                songTitle = title
+                if songTitle == nil {
+                    songTitle = "\(authors) — \(title)"
+                }
+            } else if visualType.contains("song") || embedType.contains("song") || step["songId"] != nil || step["discNumber"] != nil {
+                if songTitle == nil {
+                    songTitle = title
+                }
             } else if showTitle == nil {
-                let subtitle = (step["titleConcept"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let rawSubtitle = (step["titleConcept"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let subtitle = cleanRadioMetadataString(rawSubtitle)
                 if !subtitle.isEmpty && !title.localizedCaseInsensitiveContains(subtitle) {
                     showTitle = "\(subtitle) • \(title)"
                 } else {

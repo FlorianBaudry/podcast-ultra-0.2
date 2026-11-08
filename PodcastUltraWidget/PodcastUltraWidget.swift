@@ -334,7 +334,16 @@ struct WidgetRefreshButton: View {
 
 extension View {
     func widgetContainerBackground<Background: View>(@ViewBuilder _ background: () -> Background) -> some View {
-        self.containerBackground(for: .widget, content: background)
+        if #available(iOSApplicationExtension 17.0, iOS 17.0, *) {
+            return AnyView(self.containerBackground(for: .widget, content: background))
+        } else {
+            return AnyView(
+                ZStack {
+                    background().ignoresSafeArea()
+                    self
+                }
+            )
+        }
     }
 }
 

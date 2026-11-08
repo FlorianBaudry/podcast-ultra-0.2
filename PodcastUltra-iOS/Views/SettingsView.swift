@@ -29,6 +29,7 @@ struct BackupFileDocument: FileDocument {
 struct SettingsView: View {
     @EnvironmentObject var audioPlayer: AudioPlayerManager
     @ObservedObject var storage = LocalStorageManager.shared
+    @ObservedObject var watchSession = WatchSessionManager.shared
     
     @State private var showingSpotifyAlert = false
     @State private var spotifyAlertTitle = "Spotify"
@@ -48,7 +49,7 @@ struct SettingsView: View {
     @State private var isWatchSectionExpanded = false
     @State private var isHelpSectionExpanded = false
     @State private var expandedHelpTopicId: String? = nil
-    @State private var isKnowledgeWeatherExpanded = true
+    @State private var isKnowledgeWeatherExpanded = false
     
     private let speeds = [0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0, 2.5]
     private let accentColors = ["indigo", "blue", "emerald", "rose", "violet", "amber"]
@@ -63,6 +64,9 @@ struct SettingsView: View {
                     .padding(.horizontal)
                 
                 VStack(spacing: 16) {
+                    // 0. Dedicated Weather Forecast Section at the Very Top
+                    WeeklyWeatherSettingsSection()
+                    
                     // 1. Language Picker
                     VStack(alignment: .leading, spacing: 8) {
                         Label(Translations.shared.t("language", storage.currentLanguage), systemImage: "globe")
@@ -359,10 +363,10 @@ struct SettingsView: View {
                     .cornerRadius(18)
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
                     
-                    // 8. 5 Dernières Informations de Connaissance & Météo sur 1 Semaine
+                    // 8. 5 Dernières Informations de Connaissance (Savoirs récents — minimisé par défaut)
                     KnowledgeAndWeeklyWeatherSettingsSection(isExpanded: $isKnowledgeWeatherExpanded)
                     
-                    // 9. Discrete Collapsible Apple Watch (iWatch) Configuration & Companion
+                    // 9. Discrete Collapsible Apple Watch Configuration & Companion
                     VStack(alignment: .leading, spacing: 10) {
                         Button(action: {
                             HapticManager.shared.trigger(.light)
@@ -381,7 +385,7 @@ struct SettingsView: View {
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Apple Watch • iWatch")
+                                    Text("Apple Watch")
                                         .font(.system(size: 13, weight: .bold))
                                         .foregroundColor(storage.primaryTextColor)
                                     Text(storage.currentLanguage == .fr ? "Configuration & synchronisation montre (touchez pour afficher)" : "Watch configuration & sync (tap to expand)")
@@ -407,20 +411,29 @@ struct SettingsView: View {
                             
                             Text(
                                 storage.currentLanguage == .fr
-                                ? "Synchronisez vos derniers épisodes et radios favorites avec l'application Apple Watch ou ouvrez le simulateur de configuration iWatch."
-                                : "Sync your latest episodes and favorite radios with the Apple Watch app or open the iWatch configuration interface."
+                                ? "Synchronisez vos derniers épisodes et radios favorites avec l'application Apple Watch ou ouvrez l'aperçu Apple Watch."
+                                : "Sync your latest episodes and favorite radios with the Apple Watch app or open the Apple Watch companion interface."
                             )
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                             
                             HStack(spacing: 10) {
                                 Button(action: {
-                                    HapticManager.shared.trigger(.light)
-                                    WatchSessionManager.shared.syncContextToWatch()
+                                    HapticManager.shared.trigger(.medium)
+                                    watchSession.syncLatestPodcastsToWatch()
                                 }) {
                                     HStack(spacing: 6) {
-                                        Image(systemName: "arrow.triangle.2.circlepath")
-                                        Text(storage.currentLanguage == .fr ? "Synchroniser" : "Sync Watch")
+                                        if watchSession.isSyncingPodcasts {
+                                            ProgressView()
+                                                .scaleEffect(0.75)
+                                        } else {
+                                            Image(systemName: "arrow.triangle.2.circlepath")
+                                        }
+                                        Text(
+                                            watchSession.isSyncingPodcasts
+                                            ? (storage.currentLanguage == .fr ? "Synchronisation..." : "Syncing...")
+                                            : (storage.currentLanguage == .fr ? "Synchroniser" : "Sync Watch")
+                                        )
                                     }
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(storage.primaryTextColor)
@@ -429,6 +442,7 @@ struct SettingsView: View {
                                     .background(storage.subtleSurfaceColor)
                                     .cornerRadius(10)
                                 }
+                                .disabled(watchSession.isSyncingPodcasts)
                                 
                                 Button(action: {
                                     HapticManager.shared.trigger(.light)
@@ -960,12 +974,10 @@ struct AppGuideTopic: Identifiable {
     let details: [String]
 }
 
-// MARK: - 5 Latest Knowledge Facts & 7-Day Weather Forecast Section in Settings
-struct KnowledgeAndWeeklyWeatherSettingsSection: View {
-    @Binding var isExpanded: Bool
+// MARK: - Dedicated Top 7-Day Weather Forecast Section & Collapsible Recent Knowledge Section in Settings
+struct WeeklyWeatherSettingsSection: View {
     @ObservedObject var storage = LocalStorageManager.shared
     @ObservedObject var weatherService = WeatherService.shared
-    @ObservedObject var factsService = KnowledgeFactsService.shared
     
     private static let inputDateFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -1001,6 +1013,77 @@ struct KnowledgeAndWeeklyWeatherSettingsSection: View {
     
     var body: some View {
         let isFr = storage.currentLanguage == .fr
+        
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label(
+                    isFr ? "Météo • \(weatherService.cityName)" : "Weather • \(weatherService.cityName)",
+                    systemImage: weatherService.weatherIcon
+                )
+                .font(.system(size: 12, weight: .black))
+                .foregroundColor(storage.accentColorColor())
+                
+                Spacer()
+                
+                if let currentTemp = weatherService.temperature {
+                    Text("\(Int(round(currentTemp)))°C • \(weatherService.weatherDescription)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(storage.primaryTextColor)
+                }
+            }
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(Array(weatherService.weeklyForecast.prefix(7).enumerated()), id: \.element.id) { index, day in
+                        VStack(spacing: 6) {
+                            Text(formattedDayLabel(day.dateString, index: index))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(index == 0 ? storage.accentColorColor() : .secondary)
+                                .lineLimit(1)
+                            
+                            Image(systemName: day.icon)
+                                .font(.system(size: 18))
+                                .foregroundColor(storage.accentColorColor())
+                                .frame(height: 22)
+                            
+                            VStack(spacing: 1) {
+                                Text("\(Int(round(day.tempMax)))°")
+                                    .font(.system(size: 12, weight: .black))
+                                    .foregroundColor(storage.primaryTextColor)
+                                Text("\(Int(round(day.tempMin)))°")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .frame(width: 58)
+                        .padding(.vertical, 10)
+                        .background(index == 0 ? storage.accentColorColor().opacity(0.12) : storage.subtleSurfaceColor)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(index == 0 ? storage.accentColorColor().opacity(0.4) : storage.cardBorderColor, lineWidth: 1)
+                        )
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(storage.cardBackgroundColor)
+        .cornerRadius(18)
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
+        .onAppear {
+            weatherService.requestLocation()
+        }
+    }
+}
+
+struct KnowledgeAndWeeklyWeatherSettingsSection: View {
+    @Binding var isExpanded: Bool
+    @ObservedObject var storage = LocalStorageManager.shared
+    @ObservedObject var factsService = KnowledgeFactsService.shared
+    
+    var body: some View {
+        let isFr = storage.currentLanguage == .fr
         let recentFacts = factsService.recentFacts
         
         VStack(alignment: .leading, spacing: 12) {
@@ -1021,10 +1104,10 @@ struct KnowledgeAndWeeklyWeatherSettingsSection: View {
                     }
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(isFr ? "Savoirs Récents & Météo (7 jours)" : "Recent Knowledge & 7-Day Weather")
+                        Text(isFr ? "Savoirs Récents" : "Recent Knowledge")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(storage.primaryTextColor)
-                        Text(isFr ? "Les 5 dernières clés affichées & prévisions de la semaine" : "Last 5 displayed facts & weekly weather forecast")
+                        Text(isFr ? "Les 5 dernières clés affichées (touchez pour afficher)" : "Last 5 displayed facts (tap to expand)")
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.secondary)
                             .lineLimit(1)
@@ -1045,66 +1128,7 @@ struct KnowledgeAndWeeklyWeatherSettingsSection: View {
                     .background(storage.cardBorderColor)
                     .padding(.vertical, 2)
                 
-                // 1. 7-Day Weather Forecast Card
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Label(
-                            isFr ? "Météo sur 1 semaine • \(weatherService.cityName)" : "7-Day Weather • \(weatherService.cityName)",
-                            systemImage: weatherService.weatherIcon
-                        )
-                        .font(.system(size: 11, weight: .black))
-                        .foregroundColor(storage.accentColorColor())
-                        
-                        Spacer()
-                        
-                        if let currentTemp = weatherService.temperature {
-                            Text("\(Int(round(currentTemp)))°C • \(weatherService.weatherDescription)")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(storage.primaryTextColor)
-                        }
-                    }
-                    
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(Array(weatherService.weeklyForecast.prefix(7).enumerated()), id: \.element.id) { index, day in
-                                VStack(spacing: 6) {
-                                    Text(formattedDayLabel(day.dateString, index: index))
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(index == 0 ? storage.accentColorColor() : .secondary)
-                                        .lineLimit(1)
-                                    
-                                    Image(systemName: day.icon)
-                                        .font(.system(size: 18))
-                                        .foregroundColor(storage.accentColorColor())
-                                        .frame(height: 22)
-                                    
-                                    VStack(spacing: 1) {
-                                        Text("\(Int(round(day.tempMax)))°")
-                                            .font(.system(size: 12, weight: .black))
-                                            .foregroundColor(storage.primaryTextColor)
-                                        Text("\(Int(round(day.tempMin)))°")
-                                            .font(.system(size: 10, weight: .semibold))
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                .frame(width: 58)
-                                .padding(.vertical, 10)
-                                .background(index == 0 ? storage.accentColorColor().opacity(0.12) : storage.subtleSurfaceColor)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(index == 0 ? storage.accentColorColor().opacity(0.4) : storage.cardBorderColor, lineWidth: 1)
-                                )
-                            }
-                        }
-                    }
-                }
-                .padding(12)
-                .background(storage.subtleSurfaceColor.opacity(0.6))
-                .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(storage.cardBorderColor, lineWidth: 1))
-                
-                // 2. Last 5 Displayed Knowledge Facts
+                // Last 5 Displayed Knowledge Facts
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Label(
@@ -1167,9 +1191,6 @@ struct KnowledgeAndWeeklyWeatherSettingsSection: View {
         .background(storage.cardBackgroundColor)
         .cornerRadius(18)
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
-        .onAppear {
-            weatherService.requestLocation()
-        }
     }
 }
 
@@ -1235,7 +1256,7 @@ struct AppGuideSettingsSection: View {
             AppGuideTopic(
                 id: "watch",
                 icon: "applewatch.watchface",
-                title: isFr ? "Déclinaison Apple Watch (iWatch)" : "Apple Watch (iWatch) Companion",
+                title: isFr ? "Compagnon Apple Watch" : "Apple Watch Companion",
                 subtitle: isFr ? "Contrôle au poignet & vue montre intégrée" : "Wrist control & built-in Watch view",
                 details: isFr ? [
                     "• Accessible à tout moment via l'icône Montre en haut à droite de l'écran principal ou depuis les Réglages.",

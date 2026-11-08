@@ -6,7 +6,36 @@ struct SearchView: View {
     @EnvironmentObject var audioPlayer: AudioPlayerManager
     @ObservedObject var storage = LocalStorageManager.shared
     
+    enum SearchSourceFilter: String, CaseIterable, Identifiable {
+        case all, podcasts, culture, enfants
+        var id: String { rawValue }
+        
+        var icon: String {
+            switch self {
+            case .all: return "sparkles"
+            case .podcasts: return "mic.fill"
+            case .culture: return "building.columns.fill"
+            case .enfants: return "teddybear.fill"
+            }
+        }
+        
+        func title(for lang: LangCode) -> String {
+            let isFr = lang == .fr
+            switch self {
+            case .all:
+                return isFr ? "Tous" : "All"
+            case .podcasts:
+                return isFr ? "Podcasts" : "Podcasts"
+            case .culture:
+                return SubscriptionSection.culture.title(for: lang)
+            case .enfants:
+                return SubscriptionSection.enfants.title(for: lang)
+            }
+        }
+    }
+    
     @State private var searchInput: String = ""
+    @State private var activeSourceFilter: SearchSourceFilter = .all
     @State private var results: UnifiedSearchResults? = nil
     @State private var isLoading = false
     @State private var searchTask: Task<Void, Never>? = nil
@@ -70,7 +99,53 @@ struct SearchView: View {
             }
             .padding(.horizontal)
             .padding(.top, 12)
-            .padding(.bottom, 10)
+            .padding(.bottom, 8)
+            
+            // Source filter bar: Tous / Podcasts / Culture / Enfants
+            if results != nil || !searchInput.trimmingCharacters(in: .whitespaces).isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(SearchSourceFilter.allCases) { filterOpt in
+                        let isSelected = activeSourceFilter == filterOpt
+                        let count = sourceCount(for: filterOpt)
+                        Button(action: {
+                            HapticManager.shared.trigger(.light)
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                activeSourceFilter = filterOpt
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: filterOpt.icon)
+                                    .font(.system(size: 10, weight: .bold))
+                                Text(filterOpt.title(for: storage.currentLanguage))
+                                    .font(.system(size: 11, weight: .bold))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.75)
+                                if let c = count, c > 0 {
+                                    Text("\(c)")
+                                        .font(.system(size: 9.5, weight: .black))
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1.5)
+                                        .background(isSelected ? Color.white.opacity(0.22) : storage.cardBackgroundColor)
+                                        .clipShape(Capsule())
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                            .padding(.horizontal, 6)
+                            .background(isSelected ? storage.accentColorColor() : storage.subtleSurfaceColor)
+                            .foregroundColor(isSelected ? .white : storage.primaryTextColor)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(isSelected ? Color.white.opacity(0.25) : storage.cardBorderColor, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            }
             
             if isLoading {
                 Spacer()
@@ -79,116 +154,102 @@ struct SearchView: View {
                     .progressViewStyle(CircularProgressViewStyle(tint: storage.accentColorColor()))
                 Spacer()
             } else if let searchResults = results {
-                List {
-                    // 1. Podcasts Section
-                    if !searchResults.podcasts.isEmpty {
-                        Section(header: Text("Podcasts").font(.headline).foregroundColor(storage.accentColorColor())) {
-                            ForEach(searchResults.podcasts) { podcast in
-                                NavigationLink(destination: EpisodeListView(podcast: podcast)) {
-                                    HStack(spacing: 12) {
-                                        CachedAsyncImage(url: URL(string: podcast.artworkUrl100 ?? ""), maxPixelSize: 160) { image in
-                                            image.resizable().aspectRatio(contentMode: .fill)
-                                        } placeholder: {
-                                            Color.primary.opacity(0.07)
-                                        }
-                                        .frame(width: 46, height: 46)
-                                        .cornerRadius(10)
-                                        .clipped()
-                                        
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(podcast.collectionName)
-                                                .font(.system(size: 13, weight: .bold))
-                                                .foregroundColor(storage.primaryTextColor)
-                                                .lineLimit(1)
-                                            Text(podcast.artistName)
-                                                .font(.system(size: 10))
-                                                .foregroundColor(.secondary)
-                                                .lineLimit(1)
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        Button(action: {
-                                            HapticManager.shared.trigger(.medium)
-                                            storage.toggleFavoritePodcast(podcast)
-                                        }) {
-                                            Image(systemName: storage.isFavoritePodcast(podcast.collectionId) ? "heart.fill" : "heart")
-                                                .foregroundColor(storage.isFavoritePodcast(podcast.collectionId) ? .red : .secondary)
-                                                .padding(6)
-                                        }
-                                        .buttonStyle(PlainButtonStyle())
-                                    }
+                let showPodcasts = (activeSourceFilter == .all || activeSourceFilter == .podcasts) && !searchResults.podcasts.isEmpty
+                let showCulture = (activeSourceFilter == .all || activeSourceFilter == .culture) && !searchResults.culture.isEmpty
+                let showEnfants = (activeSourceFilter == .all || activeSourceFilter == .enfants) && !searchResults.enfants.isEmpty
+                
+                if !showPodcasts && !showCulture && !showEnfants {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 40))
+                            .foregroundColor(.secondary)
+                        Text(storage.currentLanguage == .fr ? "Aucun résultat dans cette section" : "No results in this section")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                } else {
+                    List {
+                        // 1. Podcasts Source Section
+                        if showPodcasts {
+                            Section(
+                                header: HStack(spacing: 6) {
+                                    Image(systemName: "mic.fill")
+                                    Text(SearchSourceFilter.podcasts.title(for: storage.currentLanguage))
                                 }
-                                .simultaneousGesture(TapGesture().onEnded {
-                                    isSearchFieldFocused = false
-                                    onClose?()
-                                })
+                                .font(.headline)
+                                .foregroundColor(storage.accentColorColor())
+                            ) {
+                                ForEach(searchResults.podcasts) { podcast in
+                                    searchResultRow(
+                                        item: podcast,
+                                        sourceType: .podcasts
+                                    )
+                                }
                             }
+                            .listRowBackground(Color.clear)
+                            .listRowSeparatorTint(storage.cardBorderColor)
                         }
-                        .listRowBackground(Color.clear)
-                        .listRowSeparatorTint(storage.cardBorderColor)
-                    }
-                    
-                    // 2. Radio Section
-                    if !searchResults.radio.isEmpty {
-                        Section(header: Text(Translations.shared.t("radio", storage.currentLanguage)).font(.headline).foregroundColor(storage.accentColorColor())) {
-                            ForEach(searchResults.radio) { station in
-                                RadioRow(station: station)
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        Button {
-                                            storage.toggleFavoriteRadioStation(station)
-                                        } label: {
-                                            Label(storage.isFavoriteRadio(station.id) ? "Unfav" : "Fav",
-                                                  systemImage: storage.isFavoriteRadio(station.id) ? "heart.slash.fill" : "heart.fill")
-                                        }
-                                        .tint(storage.isFavoriteRadio(station.id) ? .red : .gray)
-                                    }
+                        
+                        // 2. Culture Source Section
+                        if showCulture {
+                            Section(
+                                header: HStack(spacing: 6) {
+                                    Image(systemName: "building.columns.fill")
+                                    Text(SearchSourceFilter.culture.title(for: storage.currentLanguage))
+                                }
+                                .font(.headline)
+                                .foregroundColor(storage.accentColorColor())
+                            ) {
+                                ForEach(searchResults.culture) { item in
+                                    searchResultRow(
+                                        item: item,
+                                        sourceType: .culture
+                                    )
+                                }
                             }
+                            .listRowBackground(Color.clear)
+                            .listRowSeparatorTint(storage.cardBorderColor)
                         }
-                        .listRowBackground(Color.clear)
-                        .listRowSeparatorTint(storage.cardBorderColor)
-                    }
-                    
-                    // 3. Episodes Section
-                    if !searchResults.episodes.isEmpty {
-                        Section(header: Text(Translations.shared.t("episodes", storage.currentLanguage)).font(.headline).foregroundColor(storage.accentColorColor())) {
-                            ForEach(searchResults.episodes) { episode in
-                                EpisodeRowView(episode: episode)
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        Button {
-                                            audioPlayer.playEpisode(episode)
-                                        } label: {
-                                            Label("Play", systemImage: "play.fill")
-                                        }
-                                        .tint(storage.accentColorColor())
-                                        
-                                        Button {
-                                            audioPlayer.addToQueue(episode)
-                                        } label: {
-                                            Label("Queue", systemImage: "plus.circle.fill")
-                                        }
-                                        .tint(.green)
-                                    }
-                                    .onTapGesture {
-                                        isSearchFieldFocused = false
-                                        audioPlayer.playEpisode(episode)
-                                    }
+                        
+                        // 3. Enfant Source Section
+                        if showEnfants {
+                            Section(
+                                header: HStack(spacing: 6) {
+                                    Image(systemName: "teddybear.fill")
+                                    Text(SearchSourceFilter.enfants.title(for: storage.currentLanguage))
+                                }
+                                .font(.headline)
+                                .foregroundColor(storage.accentColorColor())
+                            ) {
+                                ForEach(searchResults.enfants) { item in
+                                    searchResultRow(
+                                        item: item,
+                                        sourceType: .enfants
+                                    )
+                                }
                             }
+                            .listRowBackground(Color.clear)
+                            .listRowSeparatorTint(storage.cardBorderColor)
                         }
-                        .listRowBackground(Color.clear)
-                        .listRowSeparatorTint(storage.cardBorderColor)
                     }
+                    .listStyle(PlainListStyle())
+                    .scrollDismissesKeyboard(.immediately)
+                    .background(Color.clear)
                 }
-                .listStyle(PlainListStyle())
-                .scrollDismissesKeyboard(.immediately)
-                .background(Color.clear)
             } else {
                 Spacer()
                 VStack(spacing: 12) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 44))
                         .foregroundColor(.secondary)
-                    Text(storage.currentLanguage == .fr ? "Tapez pour rechercher podcasts, radios ou épisodes" : "Type to search podcasts, radios or episodes")
+                    Text(
+                        storage.currentLanguage == .fr
+                        ? "Recherchez par source : Podcasts, Culture ou Enfants"
+                        : "Search across Podcasts, Culture & Kids"
+                    )
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(.secondary)
@@ -255,6 +316,115 @@ struct SearchView: View {
                 self.isLoading = false
             }
         }
+    }
+    
+    private func sourceCount(for filter: SearchSourceFilter) -> Int? {
+        guard let res = results else { return nil }
+        switch filter {
+        case .all:
+            return res.podcasts.count + res.culture.count + res.enfants.count
+        case .podcasts:
+            return res.podcasts.count
+        case .culture:
+            return res.culture.count
+        case .enfants:
+            return res.enfants.count
+        }
+    }
+    
+    @ViewBuilder
+    private func searchResultRow(item: Podcast, sourceType: SearchSourceFilter) -> some View {
+        let isAudiobookView = (sourceType != .podcasts)
+        let isFavorited: Bool = {
+            switch sourceType {
+            case .podcasts, .all:
+                return storage.isFavoritePodcast(item.collectionId)
+            case .culture:
+                return storage.isFavoriteSubscription(item.collectionId, in: .culture)
+            case .enfants:
+                return storage.isFavoriteSubscription(item.collectionId, in: .enfants)
+            }
+        }()
+        
+        NavigationLink(destination: EpisodeListView(podcast: item, isAudiobook: isAudiobookView)) {
+            HStack(spacing: 12) {
+                if sourceType == .culture {
+                    SubscriptionArtworkView(book: item, section: .culture)
+                        .frame(width: 48, height: 48)
+                        .cornerRadius(10)
+                        .clipped()
+                } else if sourceType == .enfants {
+                    SubscriptionArtworkView(book: item, section: .enfants)
+                        .frame(width: 48, height: 48)
+                        .cornerRadius(10)
+                        .clipped()
+                } else {
+                    CachedAsyncImage(url: URL(string: item.artworkUrl100 ?? item.artworkUrl600 ?? ""), maxPixelSize: 160) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color.primary.opacity(0.07)
+                    }
+                    .frame(width: 48, height: 48)
+                    .cornerRadius(10)
+                    .clipped()
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(
+                            sourceType == .podcasts
+                            ? "PODCAST"
+                            : (item.source?.uppercased() ?? sourceType.title(for: storage.currentLanguage).uppercased())
+                        )
+                        .font(.system(size: 8.5, weight: .black))
+                        .foregroundColor(storage.accentColorColor())
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(storage.accentColorColor().opacity(0.14))
+                        .cornerRadius(5)
+                        
+                        if let durationText = item.formattedTotalDuration {
+                            Text(durationText)
+                                .font(.system(size: 9.5, weight: .bold))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Text(item.collectionName)
+                        .font(.system(size: 13.5, weight: .bold))
+                        .foregroundColor(storage.primaryTextColor)
+                        .lineLimit(2)
+                    
+                    Text(item.artistName)
+                        .font(.system(size: 10.5))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                Button(action: {
+                    HapticManager.shared.trigger(.medium)
+                    switch sourceType {
+                    case .podcasts, .all:
+                        storage.toggleFavoritePodcast(item)
+                    case .culture:
+                        storage.toggleFavoriteSubscription(item, section: .culture)
+                    case .enfants:
+                        storage.toggleFavoriteSubscription(item, section: .enfants)
+                    }
+                }) {
+                    Image(systemName: isFavorited ? "heart.fill" : "heart")
+                        .foregroundColor(isFavorited ? .red : .secondary)
+                        .padding(6)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .simultaneousGesture(TapGesture().onEnded {
+            isSearchFieldFocused = false
+            onClose?()
+        })
     }
     
     private func performSearch(term: String, debounce: Bool = false) {

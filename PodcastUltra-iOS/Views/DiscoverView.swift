@@ -151,7 +151,11 @@ struct DiscoverView: View {
     private func recomputeLists() {
         self.sortedFavorites = getFilteredFavorites()
         let favIds = Set(storage.favoritePodcasts.map { $0.collectionId })
-        let rawCandidates = trendingPodcasts.filter { !favIds.contains($0.collectionId) && !LocalStorageManager.isAudiobookItem($0) }
+        let rawCandidates = trendingPodcasts.filter {
+            !favIds.contains($0.collectionId) &&
+            !LocalStorageManager.isAudiobookItem($0) &&
+            !LocalStorageManager.isKidsOrEnfantsItem($0)
+        }
         let candidates = LanguageContentFilter.shared.filterPodcasts(rawCandidates, for: storage.currentLanguage)
         var parsedDates: [Int: Date] = [:]
         parsedDates.reserveCapacity(candidates.count)
@@ -275,28 +279,41 @@ struct DiscoverView: View {
         }
     
     private func refreshFavoriteEpisodeDates() async {
-        let favs = storage.favoritePodcasts.filter { !LocalStorageManager.isAudiobookItem($0) }
+        let favs = storage.favoritePodcasts.filter { !LocalStorageManager.isAudiobookItem($0) && !LocalStorageManager.isKidsOrEnfantsItem($0) }
         guard !favs.isEmpty else { return }
         
         let fetched = (try? await APIService.shared.fetchEpisodesForPodcasts(favs, forceRefresh: true)) ?? []
-        let processed = LocalStorageManager.processRecentFavoriteEpisodes(fetched, from: favs)
+        let existing = await MainActor.run { storage.cachedEpisodes }
+        if fetched.isEmpty && !existing.isEmpty {
+            await MainActor.run {
+                self.recomputeLists()
+            }
+            return
+        }
+        let processed = LocalStorageManager.processRecentFavoriteEpisodes(fetched, from: favs, existingCached: existing)
         
         await MainActor.run {
-            storage.updateLatestEpisodeDates(from: processed.allSorted)
+            if !processed.allSorted.isEmpty {
+                storage.updateLatestEpisodeDates(from: processed.allSorted)
+            }
             var feed = processed.recentFeed
             if storage.settings.longestPerDayOnly {
                 feed = storage.applyLongestPerDayFilter(feed)
             }
-            storage.cachedEpisodes = feed
-            storage.lastEpisodesFetchDate = Date()
+            if !feed.isEmpty {
+                storage.cachedEpisodes = feed
+                if !fetched.isEmpty {
+                    storage.lastEpisodesFetchDate = Date()
+                }
+            }
             self.recomputeLists()
         }
     }
     
     private func getFilteredFavorites() -> [Podcast] {
         let filtered = storage.favoritePodcasts.filter { p in
-            // 1. Never show audiobooks in Podcasts favorites
-            if LocalStorageManager.isAudiobookItem(p) { return false }
+            // 1. Never show audiobooks or kids/comptines items in Podcasts favorites
+            if LocalStorageManager.isAudiobookItem(p) || LocalStorageManager.isKidsOrEnfantsItem(p) { return false }
             
             let genres = p.genres?.map { $0.lowercased() } ?? []
             let primary = p.primaryGenreName?.lowercased() ?? ""

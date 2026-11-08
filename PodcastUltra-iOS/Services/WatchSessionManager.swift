@@ -9,6 +9,7 @@ final class WatchSessionManager: NSObject, ObservableObject {
     
     @Published var isWatchPaired: Bool = false
     @Published var isWatchReachable: Bool = false
+    @Published var isSyncingPodcasts: Bool = false
     @Published var lastSyncDate: Date? = nil
     
     private override init() {
@@ -23,6 +24,46 @@ final class WatchSessionManager: NSObject, ObservableObject {
         session.delegate = self
         session.activate()
         #endif
+    }
+    
+    /// Loads the latest episodes from the user's favorite podcasts (updating cachedEpisodes) and syncs them to the Apple Watch.
+    func syncLatestPodcastsToWatch() {
+        guard !isSyncingPodcasts else { return }
+        isSyncingPodcasts = true
+        Task {
+            let storage = LocalStorageManager.shared
+            let favPodcasts = await MainActor.run {
+                storage.favoritePodcasts.filter {
+                    !LocalStorageManager.isAudiobookItem($0) && !LocalStorageManager.isKidsOrEnfantsItem($0)
+                }
+            }
+            if !favPodcasts.isEmpty {
+                let fetched = (try? await APIService.shared.fetchEpisodesForPodcasts(favPodcasts, forceRefresh: true)) ?? []
+                let existing = await MainActor.run { storage.cachedEpisodes }
+                let processed = LocalStorageManager.processRecentFavoriteEpisodes(fetched, from: favPodcasts, existingCached: existing)
+                await MainActor.run {
+                    if !processed.allSorted.isEmpty {
+                        storage.updateLatestEpisodeDates(from: processed.allSorted)
+                    }
+                    var feed = processed.recentFeed
+                    if storage.settings.longestPerDayOnly {
+                        feed = storage.applyLongestPerDayFilter(feed)
+                    }
+                    if !feed.isEmpty {
+                        storage.cachedEpisodes = feed
+                        if !fetched.isEmpty {
+                            storage.lastEpisodesFetchDate = Date()
+                        }
+                        storage.syncWidgetLatestEpisodes()
+                    }
+                }
+            }
+            await MainActor.run {
+                self.syncContextToWatch()
+                self.lastSyncDate = Date()
+                self.isSyncingPodcasts = false
+            }
+        }
     }
     
     func syncContextToWatch() {

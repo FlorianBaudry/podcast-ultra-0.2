@@ -23,7 +23,7 @@ struct WatchCompanionView: View {
             VStack(spacing: 24) {
                 // Header
                 HStack {
-                    Label("Podcast Ultra • iWatch", systemImage: "applewatch.watchface")
+                    Label("Podcast Ultra • Apple Watch", systemImage: "applewatch.watchface")
                         .font(.system(size: 20, weight: .black, design: .rounded))
                         .foregroundColor(storage.primaryTextColor)
                     
@@ -217,19 +217,29 @@ struct WatchCompanionView: View {
                     
                     Text(
                         storage.currentLanguage == .fr
-                        ? "Utilisez la déclinaison iWatch ci-dessus directement dans l'application ou synchronisez vos 5 derniers épisodes, vos radios favorites et le contrôle de lecture avec votre Apple Watch."
-                        : "Use the iWatch interface above directly in the app or sync your latest episodes, favorite radios and playback controls with your paired Apple Watch."
+                        ? "Utilisez l'aperçu Apple Watch ci-dessus directement dans l'application ou synchronisez vos derniers épisodes, vos radios favorites et le contrôle de lecture avec votre Apple Watch."
+                        : "Use the Apple Watch interface above directly in the app or sync your latest episodes, favorite radios and playback controls with your paired Apple Watch."
                     )
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                     
                     Button(action: {
                         HapticManager.shared.trigger(.medium)
-                        watchSession.syncContextToWatch()
+                        watchSession.syncLatestPodcastsToWatch()
                     }) {
                         HStack {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                            Text(storage.currentLanguage == .fr ? "Synchroniser avec l'Apple Watch" : "Sync with Apple Watch")
+                            if watchSession.isSyncingPodcasts {
+                                ProgressView()
+                                    .tint(.white)
+                                    .scaleEffect(0.85)
+                            } else {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                            }
+                            Text(
+                                watchSession.isSyncingPodcasts
+                                ? (storage.currentLanguage == .fr ? "Chargement des derniers podcasts..." : "Loading latest podcasts...")
+                                : (storage.currentLanguage == .fr ? "Synchroniser avec l'Apple Watch" : "Sync with Apple Watch")
+                            )
                         }
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
@@ -238,6 +248,7 @@ struct WatchCompanionView: View {
                         .background(storage.accentColorColor())
                         .cornerRadius(12)
                     }
+                    .disabled(watchSession.isSyncingPodcasts)
                 }
                 .padding(16)
                 .background(storage.cardBackgroundColor)

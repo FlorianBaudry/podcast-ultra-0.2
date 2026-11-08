@@ -251,6 +251,13 @@ class LocalStorageManager: ObservableObject {
         }
     }
     
+    @Published var pinnedSubscriptionIds: [Int] = [] {
+        didSet {
+            guard isInitialized else { return }
+            save(pinnedSubscriptionIds, forKey: keys.pinnedSubscriptionIds)
+        }
+    }
+    
     @Published var cachedSubscriptionsBySection: [String: [Podcast]] = [:] {
         didSet {
             guard isInitialized else { return }
@@ -406,6 +413,7 @@ class LocalStorageManager: ObservableObject {
         subscriptionSectionMap: "voxstream_sub_section_map",
         inProgressByCollection: "voxstream_in_progress_subs_v2",
         cancelledInProgressIds: "voxstream_cancelled_in_progress",
+        pinnedSubscriptionIds: "voxstream_pinned_subs",
         cachedSubscriptionsBySection: "voxstream_cached_subs_by_section",
         lastSubscriptionFetchTimestamps: "voxstream_last_sub_fetch_ts",
         favoriteRadios: "voxstream_fav_radios",
@@ -455,12 +463,12 @@ class LocalStorageManager: ObservableObject {
             loadedBooks = loaded
         }
         
-        // Load favorites and separate any audiobooks so book favorites only appear in the Books tab
+        // Load favorites and separate any audiobooks or kids/enfants items so each section stays clean
         if let data = UserDefaults.standard.data(forKey: "voxstream_favs_v2"),
            let loaded = try? JSONDecoder().decode([Podcast].self, from: data) {
             var purePodcasts: [Podcast] = []
             for item in loaded {
-                if Self.isAudiobookItem(item) {
+                if Self.isAudiobookItem(item) && !Self.isKidsOrEnfantsItem(item) {
                     if !loadedBooks.contains(where: { $0.collectionId == item.collectionId }) {
                         loadedBooks.append(item)
                     }
@@ -506,6 +514,11 @@ class LocalStorageManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: "voxstream_cancelled_in_progress"),
            let loaded = try? JSONDecoder().decode([Int].self, from: data) {
             self.cancelledInProgressIds = loaded
+        }
+        
+        if let data = UserDefaults.standard.data(forKey: "voxstream_pinned_subs"),
+           let loaded = try? JSONDecoder().decode([Int].self, from: data) {
+            self.pinnedSubscriptionIds = loaded
         }
         
         if let data = UserDefaults.standard.data(forKey: "voxstream_cached_subs_by_section"),
@@ -632,6 +645,71 @@ class LocalStorageManager: ObservableObject {
         }
     }
     
+    static func isKidsOrEnfantsItem(_ podcast: Podcast) -> Bool {
+        if podcast.collectionId >= 40_000_000 && podcast.collectionId < 60_000_000 {
+            return true
+        }
+        if let mapped = LocalStorageManager.shared.subscriptionSectionMap[podcast.collectionId],
+           mapped == SubscriptionSection.enfants.rawValue {
+            return true
+        }
+        let src = (podcast.source ?? "").lowercased()
+        if ["storynory", "enfants", "kids", "taleming", "comptines", "berceuses", "quelle histoire", "bayard jeunesse", "école des loisirs", "jeunesse", "milan jeunesse", "alma studio", "lunii"].contains(src) {
+            return true
+        }
+        let primary = (podcast.primaryGenreName ?? "").lowercased()
+        let genres = (podcast.genres ?? []).map { $0.lowercased() }
+        let genreKeywords = [
+            "kids & family", "kids", "children", "enfants", "jeunesse",
+            "stories for kids", "education for kids", "pets & animals",
+            "histoires pour enfants", "comptines"
+        ]
+        if genreKeywords.contains(where: { kw in primary.contains(kw) || genres.contains(where: { $0.contains(kw) }) }) {
+            return true
+        }
+        let combinedText = "\(podcast.collectionName) \(podcast.artistName) \(podcast.description ?? "")".lowercased()
+        let titleAndArtist = "\(podcast.collectionName) \(podcast.artistName)".lowercased()
+        let strictKeywords = [
+            "comptine", "comptines", "berceuse", "berceuses",
+            "histoire du soir", "histoires du soir", "histoires pour enfants",
+            "histoire pour enfants", "histoires pour dormir", "contes pour enfants",
+            "conte pour enfants", "chansons pour enfants", "chansons enfantines",
+            "nursery rhyme", "nursery rhymes", "lullaby", "lullabies",
+            "bedtime stories for kids", "stories for kids", "podcast for kids",
+            "petit ours brun", "t'choupi", "tchoupi", "une histoire et... oli",
+            "oli - france inter", "les odyssées", "bestioles", "encore une histoire",
+            "quelle histoire", "bayard jeunesse", "milan jeunesse", "école des loisirs",
+            "taleming", "alma studio", "lunii", "pomme d'api", "j'aime lire",
+            "les petits curieux", "salut l'info", "images doc", "petits contes",
+            "contes et légendes", "fables de la fontaine", "guignol", "bababam jeunesse",
+            "wondery kids", "koala moon", "sleep tight stories", "greeking out",
+            "brains on!", "wow in the world", "forever ago", "smash boom best"
+        ]
+        if strictKeywords.contains(where: { titleAndArtist.contains($0) }) {
+            return true
+        }
+        let broadChildKeywords = ["comptine", "comptines", "berceuse", "histoire du soir", "histoires pour enfants", "nursery rhymes"]
+        return broadChildKeywords.contains(where: { combinedText.contains($0) })
+    }
+    
+    static func isCultureItem(_ podcast: Podcast) -> Bool {
+        if isKidsOrEnfantsItem(podcast) { return false }
+        if isAudiobookItem(podcast) { return true }
+        if (podcast.collectionId >= 10_000_000 && podcast.collectionId < 40_000_000) ||
+           (podcast.collectionId >= 50_000_000 && podcast.collectionId < 100_000_000) {
+            return true
+        }
+        if let mapped = LocalStorageManager.shared.subscriptionSectionMap[podcast.collectionId],
+           mapped == SubscriptionSection.culture.rawValue || mapped == SubscriptionSection.livres.rawValue {
+            return true
+        }
+        let src = (podcast.source ?? "").lowercased()
+        if ["arte", "ina", "collège de france", "canal académies", "cnrs", "librivox", "littérature audio", "archive", "openlibrary", "culture", "philosophie", "histoire", "sciences", "littérature", "arts", "nasa", "smithsonian", "oxford", "bbc", "france culture"].contains(src) {
+            return true
+        }
+        return false
+    }
+    
     // Saved positions helpers (non-blocking)
     func getSavedPosition(for episodeId: Int) -> Double {
         savedPositions[String(episodeId)] ?? 0.0
@@ -674,7 +752,7 @@ class LocalStorageManager: ObservableObject {
     
     // MARK: - Hourly Background Refresh (only runs when app is in background)
     func performBackgroundRefresh(force: Bool = false) async {
-        let favPodcasts = favoritePodcasts.filter { !Self.isAudiobookItem($0) }
+        let favPodcasts = favoritePodcasts.filter { !Self.isAudiobookItem($0) && !Self.isKidsOrEnfantsItem($0) }
         guard !favPodcasts.isEmpty else { return }
         if !force {
             guard shouldRefresh(lastFetch: lastEpisodesFetchDate, minInterval: 50 * 60) else {
@@ -684,13 +762,16 @@ class LocalStorageManager: ObservableObject {
         
         do {
             let fetchedEpisodes = try await APIService.shared.fetchEpisodesForPodcasts(favPodcasts, forceRefresh: true)
-            let processed = Self.processRecentFavoriteEpisodes(fetchedEpisodes, from: favPodcasts)
+            let existing = await MainActor.run { self.cachedEpisodes }
+            let processed = Self.processRecentFavoriteEpisodes(fetchedEpisodes, from: favPodcasts, existingCached: existing)
             
             await MainActor.run {
-                if !processed.allSorted.isEmpty {
+                if !processed.recentFeed.isEmpty {
                     self.updateLatestEpisodeDates(from: processed.allSorted)
                     self.cachedEpisodes = processed.recentFeed
-                    self.lastEpisodesFetchDate = Date()
+                    if !fetchedEpisodes.isEmpty {
+                        self.lastEpisodesFetchDate = Date()
+                    }
                     self.syncWidgetLatestEpisodes()
                     WatchSessionManager.shared.syncContextToWatch()
                 }
@@ -700,10 +781,27 @@ class LocalStorageManager: ObservableObject {
         }
     }
     
-    /// Processes raw fetched episodes for favorite podcasts: sanitizes dates, removes profanity, deduplicates,
+    /// Processes raw fetched episodes for favorite podcasts: merges with existing cached episodes for current favorites
+    /// so offline refreshes or partial feed failures never empty the list, sanitizes dates, removes profanity, deduplicates,
     /// sorts newest-first, and builds the recent episodes feed (all episodes from the last 14 days + at least the 3 newest episodes per favorite podcast).
-    static func processRecentFavoriteEpisodes(_ rawEpisodes: [Episode], from favoritePodcasts: [Podcast]) -> (allSorted: [Episode], recentFeed: [Episode]) {
-        let sanitized = Self.sanitizeEpisodesDates(rawEpisodes)
+    static func processRecentFavoriteEpisodes(_ rawEpisodes: [Episode], from favoritePodcasts: [Podcast], existingCached: [Episode] = []) -> (allSorted: [Episode], recentFeed: [Episode]) {
+        let favIds = Set(favoritePodcasts.map { $0.collectionId })
+        let favNames = Set(favoritePodcasts.map { $0.collectionName.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) })
+        
+        // Keep existing cached episodes that belong to any current favorite podcast so offline/partial fetches never drop episodes
+        let validExisting = existingCached.filter { ep in
+            if let colId = ep.collectionId, favIds.contains(colId) {
+                return true
+            }
+            if let colName = ep.collectionName?.lowercased().trimmingCharacters(in: .whitespacesAndNewlines),
+               favNames.contains(colName) {
+                return true
+            }
+            return false
+        }
+        
+        let combinedInput = rawEpisodes + validExisting
+        let sanitized = Self.sanitizeEpisodesDates(combinedInput)
         let clean = ProfanityFilter.shared.filterCleanEpisodes(sanitized)
         
         // Deduplicate by trackId or previewUrl while preserving the first seen item
@@ -742,7 +840,7 @@ class LocalStorageManager: ObservableObject {
         var countPerPodcast: [Int: Int] = [:]
         var recent: [Episode] = []
         for ep in sorted {
-            let colId = ep.collectionId ?? 0
+            let colId = ep.collectionId ?? (ep.collectionName?.hashValue ?? ep.trackId)
             let currentCount = countPerPodcast[colId, default: 0]
             let epDate = parsedDates[ep.trackId]
             let isWithinCutoff = (epDate != nil && epDate! >= cutoff)
@@ -751,6 +849,10 @@ class LocalStorageManager: ObservableObject {
                 recent.append(ep)
                 countPerPodcast[colId] = currentCount + 1
             }
+        }
+        
+        if recent.isEmpty && !sorted.isEmpty {
+            recent = Array(sorted.prefix(50))
         }
         
         return (allSorted: sorted, recentFeed: recent)
@@ -785,26 +887,33 @@ class LocalStorageManager: ObservableObject {
     
     func applyLongestPerDayFilter(_ input: [Episode]) -> [Episode] {
         var grouped: [String: (episode: Episode, date: Date)] = [:]
+        var fallbackOrder = 0
         for ep in input {
-            guard let collectionId = ep.collectionId,
-                  let releaseStr = ep.releaseDate,
-                  let date = DateFormatterUtility.parse(releaseStr) else { continue }
-            
-            let dateStr = DateFormatterUtility.formatKey(date)
-            let key = "\(collectionId)-\(dateStr)"
-            let time = ep.trackTimeMillis ?? 0
-            
-            if let existing = grouped[key] {
-                if time > (existing.episode.trackTimeMillis ?? 0) {
+            fallbackOrder += 1
+            let collectionKey = ep.collectionId.map(String.init) ?? (ep.collectionName ?? "podcast_\(ep.trackId)")
+            if let releaseStr = ep.releaseDate,
+               let date = DateFormatterUtility.parse(releaseStr) {
+                let dateStr = DateFormatterUtility.formatKey(date)
+                let key = "\(collectionKey)-\(dateStr)"
+                let time = ep.trackTimeMillis ?? 0
+                
+                if let existing = grouped[key] {
+                    if time > (existing.episode.trackTimeMillis ?? 0) {
+                        grouped[key] = (ep, date)
+                    }
+                } else {
                     grouped[key] = (ep, date)
                 }
             } else {
-                grouped[key] = (ep, date)
+                // Keep episodes whose releaseDate could not be parsed instead of dropping them
+                let key = "\(collectionKey)-unparsed-\(ep.trackId)"
+                grouped[key] = (ep, Date.distantPast.addingTimeInterval( Double(max(0, 100_000 - fallbackOrder)) ))
             }
         }
-        return grouped.values
+        let result = grouped.values
             .sorted { $0.date > $1.date }
             .map { $0.episode }
+        return result.isEmpty ? input : result
     }
     
     // MARK: - Widget Synchronization (Top 5 Latest Subscribed Episodes)
@@ -1035,9 +1144,13 @@ class LocalStorageManager: ObservableObject {
         self.downloadedEpisodeIds = []
     }
     
-    // Toggle Favorite Podcast (Only non-audiobook podcasts)
+    // Toggle Favorite Podcast (Only non-audiobook, non-enfants podcasts)
     func toggleFavoritePodcast(_ podcast: Podcast) {
-        if Self.isAudiobookItem(podcast) {
+        if Self.isKidsOrEnfantsItem(podcast) {
+            toggleFavoriteSubscription(podcast, section: .enfants)
+            return
+        }
+        if Self.isAudiobookItem(podcast) || Self.isCultureItem(podcast) {
             toggleFavoriteAudiobook(podcast)
             return
         }
@@ -1149,6 +1262,7 @@ class LocalStorageManager: ObservableObject {
         var list = favoritesForSubscriptionSection(targetSection)
         if list.contains(where: { $0.collectionId == item.collectionId }) {
             list.removeAll(where: { $0.collectionId == item.collectionId })
+            pinnedSubscriptionIds.removeAll(where: { $0 == item.collectionId })
             if targetSection == .culture {
                 var booksList = dict[SubscriptionSection.livres.rawValue] ?? []
                 booksList.removeAll(where: { $0.collectionId == item.collectionId })
@@ -1160,6 +1274,19 @@ class LocalStorageManager: ObservableObject {
         }
         dict[targetSection.rawValue] = list
         favoriteSubscriptionsBySection = dict
+    }
+    
+    // MARK: - Pinned Subscriptions (Culture & Enfants)
+    func isPinnedSubscription(_ collectionId: Int) -> Bool {
+        pinnedSubscriptionIds.contains(collectionId)
+    }
+    
+    func togglePinnedSubscription(_ collectionId: Int) {
+        if let idx = pinnedSubscriptionIds.firstIndex(of: collectionId) {
+            pinnedSubscriptionIds.remove(at: idx)
+        } else {
+            pinnedSubscriptionIds.insert(collectionId, at: 0)
+        }
     }
     
     // MARK: - In-Progress ("En cours") Tracking, Resume & Cancel

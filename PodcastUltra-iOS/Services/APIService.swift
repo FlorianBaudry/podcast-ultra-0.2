@@ -1164,6 +1164,7 @@ class APIService {
         }
         
         let cleanPodcasts = ProfanityFilter.shared.filterCleanPodcasts(validPodcasts)
+            .filter { !LocalStorageManager.isAudiobookItem($0) && !LocalStorageManager.isKidsOrEnfantsItem($0) }
         let targetLang = await MainActor.run { LocalStorageManager.shared.currentLanguage }
         let effectiveLang = (targetLang.itunes.lowercased() == country.lowercased()) ? targetLang : LangCode.fromItunesCountry(country)
         return LanguageContentFilter.shared.filterPodcasts(cleanPodcasts, for: effectiveLang)
@@ -2730,36 +2731,119 @@ class APIService {
         return LanguageContentFilter.shared.filterPodcasts(cleanList, for: effectiveLang)
     }
     
-    // Unified Search podcasts, radio, episodes
+    // Unified Search separated by source: Podcast, Culture, Enfant
     func searchAll(term: String, country: String = "us", langCode: String = "en") async throws -> UnifiedSearchResults {
-        var langParam = ""
-        if country == "fr" {
-            langParam = "&lang=fr_FR"
+        let trimmed = term.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return UnifiedSearchResults(podcasts: [], culture: [], enfants: [])
         }
         
-        async let podcastTask = searchPodcasts(term: term, country: country)
+        let isFr = country.lowercased() == "fr" || langCode.lowercased().hasPrefix("fr")
+        let cultureQuery = isFr ? "\(trimmed) culture histoire livre audio documentaire" : "\(trimmed) audiobook history culture documentary"
+        let enfantsQuery = isFr ? "\(trimmed) enfants jeunesse histoire contes comptines" : "\(trimmed) kids children stories nursery rhymes"
         
-        // Fetch Radio Stations
-        let escapedTerm = term.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""
-        let radUrlString = "\(radioAPIBase)/byname/\(escapedTerm)?limit=30&order=clickcount&reverse=true"
-        async let radioTask: [RadioStation] = {
-            guard let url = URL(string: radUrlString),
-                  let (data, _) = try? await URLSession.shared.data(from: url) else { return [] }
-            let stations = parseRadioJSON(data)
-            return sortRadioStations(stations, langCode: langCode)
-        }()
+        async let generalTask = searchPodcasts(term: trimmed, country: country)
+        async let cultureTask = searchPodcasts(term: cultureQuery, country: country)
+        async let enfantsTask = searchPodcasts(term: enfantsQuery, country: country)
         
-        // Fetch Episode results
-        let epUrlString = "\(iTunesSearchURL)?term=\(escapedTerm)&entity=podcastEpisode&limit=20&country=\(country)\(langParam)&_v=\(Date().timeIntervalSince1970)"
-        async let episodeTask: [Episode] = {
-            guard let url = URL(string: epUrlString),
-                  let (data, _) = try? await URLSession.shared.data(from: url) else { return [] }
-            let response = try? JSONDecoder().decode(ITunesResponse<Episode>.self, from: data)
-            return response?.results ?? []
-        }()
+        let (generalResults, rawCultureResults, rawEnfantsResults) = await (
+            (try? generalTask) ?? [],
+            (try? cultureTask) ?? [],
+            (try? enfantsTask) ?? []
+        )
         
-        let (podcasts, radio, episodes) = try await (podcastTask, radioTask, episodeTask)
-        return UnifiedSearchResults(podcasts: podcasts, radio: radio, episodes: episodes)
+        let normQuery = normalizeMatchString(trimmed)
+        let queryTokens = normQuery.split(separator: " ").map(String.init).filter { $0.count >= 2 }
+        
+        func matchesUserTerm(_ p: Podcast) -> Bool {
+            guard !queryTokens.isEmpty else { return true }
+            let haystack = normalizeMatchString("\(p.collectionName) \(p.artistName) \(p.description ?? "") \(p.primaryGenreName ?? "") \(p.source ?? "")")
+            if haystack.contains(normQuery) { return true }
+            return queryTokens.allSatisfy { haystack.contains($0) }
+        }
+        
+        // Also match against cached/favorite Culture & Enfants catalogs for instant rich results (LibriVox, ARTE, INA, Bayard, Taleming, etc.)
+        let cachedSubs = await MainActor.run { LocalStorageManager.shared.cachedSubscriptionsBySection }
+        let favCulture = await MainActor.run { LocalStorageManager.shared.favoritesForSubscriptionSection(.culture) }
+        let favEnfants = await MainActor.run { LocalStorageManager.shared.favoritesForSubscriptionSection(.enfants) }
+        let cachedBooks = await MainActor.run { LocalStorageManager.shared.cachedAudiobooks }
+        
+        var localCulturePool: [Podcast] = favCulture + cachedBooks
+        var localEnfantsPool: [Podcast] = favEnfants
+        for (key, list) in cachedSubs {
+            if key.hasPrefix(SubscriptionSection.enfants.rawValue) {
+                localEnfantsPool.append(contentsOf: list)
+            } else {
+                localCulturePool.append(contentsOf: list)
+            }
+        }
+        
+        var podcastsList: [Podcast] = []
+        var cultureList: [Podcast] = []
+        var enfantsList: [Podcast] = []
+        var seenIds = Set<Int>()
+        var seenTitles = Set<String>()
+        
+        func appendUnique(_ item: Podcast, to bucket: inout [Podcast], defaultSource: String? = nil) {
+            let titleKey = item.collectionName.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !seenIds.contains(item.collectionId), !seenTitles.contains(titleKey) else { return }
+            seenIds.insert(item.collectionId)
+            seenTitles.insert(titleKey)
+            var copy = item
+            if (copy.source == nil || copy.source?.isEmpty == true), let src = defaultSource {
+                copy.source = src
+            }
+            bucket.append(copy)
+        }
+        
+        // 1. Local cached/curated Enfants & Culture matches first
+        for item in localEnfantsPool where matchesUserTerm(item) {
+            appendUnique(item, to: &enfantsList, defaultSource: isFr ? "Enfants" : "Kids")
+        }
+        for item in localCulturePool where matchesUserTerm(item) && !LocalStorageManager.isKidsOrEnfantsItem(item) {
+            appendUnique(item, to: &cultureList, defaultSource: "Culture")
+        }
+        
+        // 2. Classify general search results into Podcasts, Culture, or Enfants
+        for item in generalResults {
+            if LocalStorageManager.isKidsOrEnfantsItem(item) {
+                appendUnique(item, to: &enfantsList, defaultSource: isFr ? "Enfants" : "Kids")
+            } else if LocalStorageManager.isCultureItem(item) {
+                appendUnique(item, to: &cultureList, defaultSource: "Culture")
+            } else {
+                appendUnique(item, to: &podcastsList, defaultSource: "Podcast")
+            }
+        }
+        
+        // 3. Add targeted Enfants search results
+        for item in rawEnfantsResults where !isRadioSourceOrStation(item) {
+            if LocalStorageManager.isKidsOrEnfantsItem(item) || matchesUserTerm(item) {
+                appendUnique(item, to: &enfantsList, defaultSource: isFr ? "Enfants" : "Kids")
+            }
+        }
+        
+        // 4. Add targeted Culture search results
+        for item in rawCultureResults where !isRadioSourceOrStation(item) && !LocalStorageManager.isKidsOrEnfantsItem(item) {
+            if LocalStorageManager.isCultureItem(item) || matchesUserTerm(item) {
+                appendUnique(item, to: &cultureList, defaultSource: "Culture")
+            }
+        }
+        
+        // Register section mappings so favoriting from Search routes to the right Favoris section
+        let finalCulture = Array(cultureList.prefix(35))
+        let finalEnfants = Array(enfantsList.prefix(35))
+        let finalPodcasts = Array(podcastsList.prefix(40))
+        
+        await MainActor.run {
+            LocalStorageManager.shared.registerSubscriptionSection(.culture, for: finalCulture)
+            LocalStorageManager.shared.registerSubscriptionSection(.enfants, for: finalEnfants)
+        }
+        
+        return UnifiedSearchResults(
+            podcasts: finalPodcasts,
+            culture: finalCulture,
+            enfants: finalEnfants
+        )
     }
     
     // MARK: - Smart Podcast Matching (for Spotify & Library Import)

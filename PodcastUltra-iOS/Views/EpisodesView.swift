@@ -78,7 +78,7 @@ struct EpisodesView: View {
     }
     
     @State private var activeSection: FavoritesSection = .podcasts
-    @State private var episodes: [Episode] = []
+    @State private var episodes: [Episode] = LocalStorageManager.shared.cachedEpisodes
     @State private var displayedEpisodes: [Episode] = []
     @State private var isLoading = false
     @State private var isRefreshing = false
@@ -176,11 +176,14 @@ struct EpisodesView: View {
             }
         }
         .onAppear {
-            if self.episodes.count != storage.cachedEpisodes.count || self.episodes.first?.trackId != storage.cachedEpisodes.first?.trackId {
+            if !storage.cachedEpisodes.isEmpty && (self.episodes.isEmpty || self.episodes.count != storage.cachedEpisodes.count || self.episodes.first?.trackId != storage.cachedEpisodes.first?.trackId) {
                 self.episodes = storage.cachedEpisodes
             }
             recomputeDisplayedEpisodes(syncWidget: false)
-            if self.episodes.isEmpty && !storage.favoritePodcasts.isEmpty {
+            let favPodcasts = storage.favoritePodcasts.filter { !LocalStorageManager.isAudiobookItem($0) && !LocalStorageManager.isKidsOrEnfantsItem($0) }
+            let cachedPodcastIds = Set(self.episodes.compactMap { $0.collectionId })
+            let hasMissingPodcastEpisodes = favPodcasts.contains { !cachedPodcastIds.contains($0.collectionId) }
+            if !favPodcasts.isEmpty && (self.episodes.isEmpty || self.displayedEpisodes.isEmpty || hasMissingPodcastEpisodes) {
                 fetchEpisodes(force: false)
             } else {
                 self.isLoading = false
@@ -189,9 +192,11 @@ struct EpisodesView: View {
         .onChange(of: storage.favoritePodcasts.count) { _, _ in
             fetchEpisodes(force: true)
         }
-        .onChange(of: storage.cachedEpisodes.count) { _, _ in
-            self.episodes = storage.cachedEpisodes
-            recomputeDisplayedEpisodes(syncWidget: false)
+        .onChange(of: storage.cachedEpisodes.count) { _, newCount in
+            if newCount > 0 || storage.favoritePodcasts.isEmpty {
+                self.episodes = storage.cachedEpisodes
+                recomputeDisplayedEpisodes(syncWidget: false)
+            }
         }
         .onChange(of: storage.dismissedEpisodeIds.count) { _, _ in
             recomputeDisplayedEpisodes(syncWidget: true)
@@ -553,6 +558,23 @@ struct EpisodesView: View {
                         )
                         .listRowBackground(Color.clear)
                         .listRowSeparatorTint(storage.cardBorderColor)
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            let isPinned = storage.isPinnedSubscription(item.collectionId)
+                            Button {
+                                HapticManager.shared.trigger(.medium)
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                    storage.togglePinnedSubscription(item.collectionId)
+                                }
+                            } label: {
+                                Label(
+                                    isPinned
+                                        ? (isFr ? "Désépingler" : "Unpin")
+                                        : (isFr ? "Épingler" : "Pin"),
+                                    systemImage: isPinned ? "pin.slash.fill" : "pin.fill"
+                                )
+                            }
+                            .tint(storage.accentColorColor())
+                        }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 withAnimation {
@@ -614,6 +636,17 @@ struct EpisodesView: View {
             }
         }
         
+        // Place pinned items at the very top of the list regardless of the active sort
+        let pinnedOrder = storage.pinnedSubscriptionIds
+        if !pinnedOrder.isEmpty {
+            let pinnedSet = Set(pinnedOrder)
+            let pinnedItems = pinnedOrder.compactMap { id in
+                list.first(where: { $0.collectionId == id })
+            }
+            let unpinnedItems = list.filter { !pinnedSet.contains($0.collectionId) }
+            return pinnedItems + unpinnedItems
+        }
+        
         return list
     }
     
@@ -632,7 +665,7 @@ struct EpisodesView: View {
     }
     
     private func fetchEpisodesAsync(force: Bool = false) async {
-        let favPodcasts = storage.favoritePodcasts.filter { !LocalStorageManager.isAudiobookItem($0) }
+        let favPodcasts = storage.favoritePodcasts.filter { !LocalStorageManager.isAudiobookItem($0) && !LocalStorageManager.isKidsOrEnfantsItem($0) }
         guard !favPodcasts.isEmpty else {
             await MainActor.run {
                 self.episodes = []
@@ -644,8 +677,18 @@ struct EpisodesView: View {
             return
         }
         
-        if !force && !episodes.isEmpty && !storage.shouldRefresh(lastFetch: storage.lastEpisodesFetchDate) {
+        let existingCached = await MainActor.run {
+            !self.episodes.isEmpty ? self.episodes : storage.cachedEpisodes
+        }
+        let cachedPodcastIds = Set(existingCached.compactMap { $0.collectionId })
+        let hasMissingPodcastEpisodes = favPodcasts.contains { !cachedPodcastIds.contains($0.collectionId) }
+        
+        if !force && !existingCached.isEmpty && !hasMissingPodcastEpisodes && !storage.shouldRefresh(lastFetch: storage.lastEpisodesFetchDate) {
             await MainActor.run {
+                if self.episodes.isEmpty {
+                    self.episodes = existingCached
+                    self.recomputeDisplayedEpisodes(syncWidget: false)
+                }
                 self.isLoading = false
                 self.isRefreshing = false
             }
@@ -653,25 +696,60 @@ struct EpisodesView: View {
         }
         
         await MainActor.run {
-            self.isLoading = episodes.isEmpty
+            if self.episodes.isEmpty && !existingCached.isEmpty {
+                self.episodes = existingCached
+                self.recomputeDisplayedEpisodes(syncWidget: false)
+            }
+            self.isLoading = self.episodes.isEmpty
             self.isRefreshing = true
         }
         
         let fetched = (try? await APIService.shared.fetchEpisodesForPodcasts(favPodcasts, forceRefresh: force)) ?? []
-        let processed = LocalStorageManager.processRecentFavoriteEpisodes(fetched, from: favPodcasts)
+        let latestCached = await MainActor.run {
+            !storage.cachedEpisodes.isEmpty ? storage.cachedEpisodes : self.episodes
+        }
+        
+        // When offline or network fails (fetched is empty), preserve the existing cached episodes instead of wiping the list!
+        if fetched.isEmpty && !latestCached.isEmpty {
+            let processedOffline = LocalStorageManager.processRecentFavoriteEpisodes([], from: favPodcasts, existingCached: latestCached)
+            await MainActor.run {
+                var feed = processedOffline.recentFeed.isEmpty ? latestCached : processedOffline.recentFeed
+                if storage.settings.longestPerDayOnly {
+                    feed = storage.applyLongestPerDayFilter(feed)
+                }
+                self.episodes = feed
+                if storage.cachedEpisodes.isEmpty && !feed.isEmpty {
+                    storage.cachedEpisodes = feed
+                }
+                self.recomputeDisplayedEpisodes(syncWidget: false)
+                self.isLoading = false
+                self.isRefreshing = false
+            }
+            return
+        }
+        
+        let processed = LocalStorageManager.processRecentFavoriteEpisodes(fetched, from: favPodcasts, existingCached: latestCached)
         
         await MainActor.run {
             // Record accurate latest episode date per podcast so Podcasts tab badges & ordering match
-            storage.updateLatestEpisodeDates(from: processed.allSorted)
+            if !processed.allSorted.isEmpty {
+                storage.updateLatestEpisodeDates(from: processed.allSorted)
+            }
             
             var feed = processed.recentFeed
             if storage.settings.longestPerDayOnly {
                 feed = storage.applyLongestPerDayFilter(feed)
             }
             
-            self.episodes = feed
-            storage.cachedEpisodes = feed
-            storage.lastEpisodesFetchDate = Date()
+            if !feed.isEmpty {
+                self.episodes = feed
+                storage.cachedEpisodes = feed
+                if !fetched.isEmpty {
+                    storage.lastEpisodesFetchDate = Date()
+                }
+            } else if !latestCached.isEmpty {
+                self.episodes = latestCached
+            }
             self.recomputeDisplayedEpisodes(syncWidget: true)
             self.isLoading = false
             self.isRefreshing = false
@@ -746,7 +824,7 @@ struct FavoriteSubscriptionRowView: View {
     var body: some View {
         let prog = inProgress
         let isPlayingThis = audioPlayer.isSubscriptionPlaying(item)
-        let isFr = storage.currentLanguage == .fr
+        let isPinned = storage.isPinnedSubscription(item.collectionId)
         
         HStack(alignment: .center, spacing: 12) {
             SubscriptionArtworkView(book: item, section: section)
@@ -760,6 +838,13 @@ struct FavoriteSubscriptionRowView: View {
             
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
+                    if isPinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 9, weight: .black))
+                            .foregroundColor(storage.accentColorColor())
+                            .rotationEffect(.degrees(45))
+                    }
+                    
                     if let src = item.source, !src.isEmpty {
                         Text(src.uppercased())
                             .font(.system(size: 8.5, weight: .black))
@@ -828,34 +913,16 @@ struct FavoriteSubscriptionRowView: View {
             
             Spacer(minLength: 4)
             
-            // Play / Resume & Favorite buttons
-            HStack(spacing: 8) {
-                Button(action: {
-                    HapticManager.shared.trigger(.medium)
-                    audioPlayer.toggleSubscriptionPlayback(item)
-                }) {
-                    Image(systemName: isPlayingThis ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.system(size: 30))
-                        .foregroundColor(prog != nil || isPlayingThis ? .orange : storage.accentColorColor())
-                }
-                .buttonStyle(PlainButtonStyle())
-                
-                Button(action: {
-                    HapticManager.shared.trigger(.light)
-                    withAnimation {
-                        storage.toggleFavoriteSubscription(item, section: section)
-                    }
-                }) {
-                    Image(systemName: "heart.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(.red)
-                        .frame(width: 28, height: 28)
-                        .background(storage.subtleSurfaceColor)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(PlainButtonStyle())
-                .accessibilityLabel(isFr ? "Retirer des favoris" : "Remove from favorites")
+            // Play / Resume button only (unsubscribe heart button removed to avoid duplication with left-swipe)
+            Button(action: {
+                HapticManager.shared.trigger(.medium)
+                audioPlayer.toggleSubscriptionPlayback(item)
+            }) {
+                Image(systemName: isPlayingThis ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 30))
+                    .foregroundColor(prog != nil || isPlayingThis ? .orange : storage.accentColorColor())
             }
+            .buttonStyle(PlainButtonStyle())
         }
         .padding(.vertical, 6)
     }

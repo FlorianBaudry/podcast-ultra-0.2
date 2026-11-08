@@ -287,6 +287,32 @@ struct PlayerTabContent: View {
                             .padding(.horizontal, 24)
                     }
                 }
+                
+                // Live Radio Now Playing Episode / Music Pill
+                if audioPlayer.playbackType == "radio",
+                   let liveTrack = audioPlayer.currentRadioNowPlaying,
+                   !liveTrack.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "music.note.list")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(storage.accentColorColor())
+                        Text(liveTrack)
+                            .font(.system(size: 12.5, weight: .bold))
+                            .foregroundColor(storage.primaryTextColor)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 14)
+                    .background(storage.subtleSurfaceColor)
+                    .cornerRadius(14)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(storage.cardBorderColor, lineWidth: 1)
+                    )
+                    .padding(.horizontal, 24)
+                    .padding(.top, 2)
+                }
             }
             
             // Scrubber Slider (Only for Podcasts / Books)
@@ -690,8 +716,6 @@ struct PlayingItemInfoSheet: View {
         let genreText = podcast?.primaryGenreName ?? podcast?.genres?.first ?? ""
         let allGenresText = (podcast?.genres?.count ?? 0) > 1 ? (podcast?.genres?.joined(separator: " • ") ?? "") : ""
         let sourceText = podcast?.source ?? ""
-        let feedText = podcast?.feedUrl ?? ""
-        let previewText = ep.previewUrl ?? ""
         
         if let dateStr = ep.releaseDate, let date = DateFormatterUtility.parse(dateStr) {
             infoRow(
@@ -728,24 +752,17 @@ struct PlayingItemInfoSheet: View {
                 value: sourceText.uppercased()
             )
         }
-        if !feedText.isEmpty {
-            infoRow(
-                icon: "dot.radiowaves.up.forward",
-                label: "Flux RSS",
-                value: feedText
-            )
-        }
-        if !previewText.isEmpty {
-            infoRow(
-                icon: "waveform",
-                label: isFr ? "Flux Audio" : "Audio Stream",
-                value: previewText
-            )
-        }
     }
     
     @ViewBuilder
     private func radioMetadataRows(radio: RadioStation, isFr: Bool) -> some View {
+        if let liveTrack = audioPlayer.currentRadioNowPlaying, !liveTrack.isEmpty {
+            infoRow(
+                icon: "music.note.list",
+                label: isFr ? "En cours de diffusion" : "Now Playing",
+                value: liveTrack
+            )
+        }
         if let country = radio.country, !country.isEmpty {
             infoRow(
                 icon: "globe",
@@ -758,13 +775,6 @@ struct PlayingItemInfoSheet: View {
                 icon: "tag.fill",
                 label: isFr ? "Style / Tags" : "Tags",
                 value: tags
-            )
-        }
-        if !radio.url.isEmpty {
-            infoRow(
-                icon: "dot.radiowaves.left.and.right",
-                label: isFr ? "Flux Direct" : "Live Stream",
-                value: radio.url
             )
         }
     }
@@ -879,7 +889,6 @@ struct ChromecastPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var chromecast = ChromecastManager.shared
     @ObservedObject var storage = LocalStorageManager.shared
-    @State private var manualIP: String = ""
     
     var body: some View {
         NavigationStack {
@@ -1050,49 +1059,6 @@ struct ChromecastPickerSheet: View {
                         }
                     }
                 }
-                
-                // Manual IP Fallback for Chromecast
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(storage.currentLanguage == .fr ? "Connexion directe par IP (Chromecast :8009)" : "Direct IP Connection (Chromecast :8009)")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.secondary)
-                    
-                    HStack(spacing: 10) {
-                        TextField("Ex: 192.168.1.45", text: $manualIP)
-                            .keyboardType(.numbersAndPunctuation)
-                            .autocorrectionDisabled()
-                            .padding(10)
-                            .background(storage.subtleSurfaceColor)
-                            .cornerRadius(10)
-                            .foregroundColor(storage.primaryTextColor)
-                        
-                        Button(action: {
-                            HapticManager.shared.trigger(.medium)
-                            chromecast.connectToIP(manualIP)
-                        }) {
-                            Text(storage.currentLanguage == .fr ? "Caster" : "Cast")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .background(storage.accentColorColor())
-                                .cornerRadius(10)
-                        }
-                        .disabled(manualIP.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
-                    
-                    if let msg = chromecast.statusMessage {
-                        Text(msg)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(storage.accentColorColor())
-                    }
-                }
-                .padding()
-                .background(storage.cardBackgroundColor)
-                .cornerRadius(16)
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(storage.cardBorderColor, lineWidth: 1))
-                .padding(.horizontal)
                 
                 Spacer()
             }

@@ -2,6 +2,6 @@ import Foundation
 
 struct UnifiedSearchResults {
     var podcasts: [Podcast]
-    var radio: [RadioStation]
-    var episodes: [Episode]
+    var culture: [Podcast]
+    var enfants: [Podcast]
 }

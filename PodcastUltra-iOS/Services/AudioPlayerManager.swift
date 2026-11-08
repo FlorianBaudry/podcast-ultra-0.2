@@ -14,13 +14,14 @@ final class AudioPlaybackProgress: ObservableObject {
     @Published var duration: Double = 0.0
 }
 
-class AudioPlayerManager: ObservableObject {
+class AudioPlayerManager: NSObject, ObservableObject, AVPlayerItemMetadataOutputPushDelegate {
     static let shared = AudioPlayerManager()
     
     @Published var isPlaying = false
     @Published var currentTrackName: String?
     @Published var currentArtworkUrl: String?
     @Published var currentSubtitle: String?
+    @Published var currentRadioNowPlaying: String? = nil
     
     // Detailed states
     @Published var currentEpisode: Episode?
@@ -45,6 +46,8 @@ class AudioPlayerManager: ObservableObject {
     // Sleep Timer
     @Published var sleepTimerTimeLeft: TimeInterval? = nil
     private var sleepTimer: Timer?
+    private var radioMetadataTimer: Timer?
+    private var radioMetadataOutput: AVPlayerItemMetadataOutput?
     
     private var player: AVPlayer?
     private var playerItem: AVPlayerItem?
@@ -58,7 +61,8 @@ class AudioPlayerManager: ObservableObject {
     private var hasMarkedPlayed = false
     private var lastNowPlayingUpdateSec: Int = -1
     
-    init() {
+    override init() {
+        super.init()
         setupAudioSession()
         setupRemoteTransportControls()
         setupSystemNotifications()
@@ -199,6 +203,8 @@ class AudioPlayerManager: ObservableObject {
     
     func playEpisode(_ episode: Episode, exactResumeTime: Double? = nil) {
         beginBackgroundTransitionTask()
+        stopRadioMetadataPolling()
+        self.currentRadioNowPlaying = nil
         self.currentEpisode = episode
         self.currentRadio = nil
         self.playbackType = "podcast"
@@ -324,11 +330,13 @@ class AudioPlayerManager: ObservableObject {
         self.currentTrackName = radio.name
         self.currentArtworkUrl = radio.favicon
         self.currentSubtitle = radio.country ?? "Radio Direct"
+        self.currentRadioNowPlaying = nil
         self.progress.currentTime = 0.0
         self.progress.duration = 0.0
         self.currentStreamURLString = directURL
         
         playURL(directURL, initialSeekTime: 0)
+        startRadioMetadataPolling(for: radio, streamURL: directURL)
         updateWidgetState()
         WatchSessionManager.shared.syncContextToWatch()
         endBackgroundTransitionTask()
@@ -396,9 +404,9 @@ class AudioPlayerManager: ObservableObject {
         
         let asset: AVURLAsset
         if playbackType == "radio" && !url.isFileURL {
-            // Use a clean Icecast User-Agent to avoid Adswizz mobile pre-roll ad injection
+            // Request ICY live stream metadata while using a clean User-Agent to avoid Adswizz mobile pre-roll ad injection
             let headers: [String: String] = [
-                "Icy-MetaData": "0",
+                "Icy-MetaData": "1",
                 "User-Agent": "VLC/3.0.20 LibVLC/3.0.20"
             ]
             asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
@@ -414,6 +422,14 @@ class AudioPlayerManager: ObservableObject {
         }
         let item = AVPlayerItem(asset: asset)
         item.preferredForwardBufferDuration = 120 // Buffer 2 minutes ahead for reliable background playback
+        if playbackType == "radio" {
+            let metaOutput = AVPlayerItemMetadataOutput(identifiers: nil)
+            metaOutput.setDelegate(self, queue: .main)
+            item.add(metaOutput)
+            self.radioMetadataOutput = metaOutput
+        } else {
+            self.radioMetadataOutput = nil
+        }
         self.playerItem = item
         
         if let existingPlayer = player {
@@ -682,11 +698,13 @@ class AudioPlayerManager: ObservableObject {
         }
         
         // Nothing left to play
+        stopRadioMetadataPolling()
         removeTimeObserver()
         removeItemObservers()
         playbackType = "podcast"
         currentEpisode = nil
         currentRadio = nil
+        currentRadioNowPlaying = nil
         currentTrackName = nil
         currentArtworkUrl = nil
         currentSubtitle = nil
@@ -887,8 +905,13 @@ class AudioPlayerManager: ObservableObject {
     
     private func updateNowPlayingInfo() {
         var nowPlayingInfo = [String: Any]()
-        nowPlayingInfo[MPMediaItemPropertyTitle] = currentTrackName ?? "Unknown Track"
-        nowPlayingInfo[MPMediaItemPropertyArtist] = currentSubtitle ?? "Podcast Ultra"
+        if playbackType == "radio", let liveNowPlaying = currentRadioNowPlaying, !liveNowPlaying.isEmpty {
+            nowPlayingInfo[MPMediaItemPropertyTitle] = liveNowPlaying
+            nowPlayingInfo[MPMediaItemPropertyArtist] = currentTrackName ?? "Radio"
+        } else {
+            nowPlayingInfo[MPMediaItemPropertyTitle] = currentTrackName ?? "Unknown Track"
+            nowPlayingInfo[MPMediaItemPropertyArtist] = currentSubtitle ?? "Podcast Ultra"
+        }
         
         if playbackType == "podcast" {
             nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = progress.currentTime
@@ -949,5 +972,244 @@ class AudioPlayerManager: ObservableObject {
             }
             #endif
         }
+    }
+    
+    // MARK: - Live Radio Now-Playing Metadata (AVPlayerItemMetadataOutput + Radio France Live API + ICY StreamTitle)
+    func metadataOutput(_ output: AVPlayerItemMetadataOutput, didOutputTimedMetadataGroups groups: [AVTimedMetadataGroup], from track: AVPlayerItemTrack?) {
+        guard playbackType == "radio" else { return }
+        for group in groups {
+            Task { @MainActor [weak self] in
+                guard let self = self, self.playbackType == "radio" else { return }
+                var titleCandidate: String?
+                var artistCandidate: String?
+                for item in group.items {
+                    if let str = try? await item.load(.stringValue) {
+                        let cleaned = Self.cleanRadioMetadataString(str)
+                        guard !cleaned.isEmpty else { continue }
+                        if let commonKey = item.commonKey {
+                            if commonKey == .commonKeyTitle {
+                                titleCandidate = cleaned
+                            } else if commonKey == .commonKeyArtist || commonKey == .commonKeyCreator {
+                                artistCandidate = cleaned
+                            }
+                        } else {
+                            titleCandidate = cleaned
+                        }
+                    }
+                }
+                if let title = titleCandidate, !title.isEmpty {
+                    let combined: String
+                    if let artist = artistCandidate, !artist.isEmpty, !title.localizedCaseInsensitiveContains(artist) {
+                        combined = "\(artist) — \(title)"
+                    } else {
+                        combined = title
+                    }
+                    self.applyLiveRadioNowPlaying(combined)
+                }
+            }
+        }
+    }
+    
+    private func applyLiveRadioNowPlaying(_ rawText: String?) {
+        guard playbackType == "radio" else { return }
+        guard let raw = rawText else { return }
+        let cleaned = Self.cleanRadioMetadataString(raw)
+        guard !cleaned.isEmpty,
+              cleaned.count >= 2,
+              cleaned.lowercased() != (currentRadio?.name.lowercased() ?? "") else { return }
+        
+        if currentRadioNowPlaying != cleaned {
+            currentRadioNowPlaying = cleaned
+            updateNowPlayingInfo()
+        }
+    }
+    
+    private static func cleanRadioMetadataString(_ input: String) -> String {
+        var text = input
+            .replacingOccurrences(of: "StreamTitle='", with: "")
+            .replacingOccurrences(of: "';", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.hasPrefix("'") && text.hasSuffix("'") && text.count > 2 {
+            text = String(text.dropFirst().dropLast())
+        }
+        // Filter out technical placeholders or ad markers
+        let lower = text.lowercased()
+        let ignoredTokens = ["unknown", "null", "undefined", "streamtitle", "adswizz", "spot pub", "publicité", "publicite", "jingle"]
+        if ignoredTokens.contains(where: { lower == $0 || lower.hasPrefix("adswizz") }) {
+            return ""
+        }
+        return text
+    }
+    
+    private func startRadioMetadataPolling(for radio: RadioStation, streamURL: String) {
+        stopRadioMetadataPolling()
+        Task { [weak self] in
+            await self?.fetchLiveRadioMetadataOnce(for: radio, streamURL: streamURL)
+        }
+        radioMetadataTimer = Timer.scheduledTimer(withTimeInterval: 20.0, repeats: true) { [weak self] _ in
+            guard let self = self, self.playbackType == "radio", self.isPlaying, let current = self.currentRadio else { return }
+            let urlStr = self.currentStreamURLString ?? current.url
+            Task { [weak self] in
+                await self?.fetchLiveRadioMetadataOnce(for: current, streamURL: urlStr)
+            }
+        }
+    }
+    
+    private func stopRadioMetadataPolling() {
+        radioMetadataTimer?.invalidate()
+        radioMetadataTimer = nil
+    }
+    
+    private func fetchLiveRadioMetadataOnce(for radio: RadioStation, streamURL: String) async {
+        // 1. Check Radio France live metadata API first (France Inter, France Info, France Culture, FIP, France Musique, Mouv')
+        if let rfStationId = Self.radioFranceStationId(name: radio.name, url: streamURL) {
+            if let rfTitle = await Self.fetchRadioFranceLiveMeta(stationId: rfStationId) {
+                await MainActor.run {
+                    if self.currentRadio?.id == radio.id {
+                        self.applyLiveRadioNowPlaying(rfTitle)
+                    }
+                }
+                return
+            }
+        }
+        
+        // 2. Fallback: read ICY StreamTitle directly from Icecast / Shoutcast stream bytes if AVPlayerItemMetadataOutput hasn't populated it
+        if let icyTitle = await Self.fetchIcyStreamTitle(from: streamURL) {
+            await MainActor.run {
+                if self.currentRadio?.id == radio.id {
+                    self.applyLiveRadioNowPlaying(icyTitle)
+                }
+            }
+        }
+    }
+    
+    private static func radioFranceStationId(name: String, url: String) -> Int? {
+        let lower = "\(name) \(url)".lowercased()
+        if lower.contains("fip rock") || lower.contains("fiprock") { return 64 }
+        if lower.contains("fip groove") || lower.contains("fipgroove") { return 66 }
+        if lower.contains("fip electro") || lower.contains("fipelectro") { return 74 }
+        if lower.contains("fip jazz") || lower.contains("fipjazz") { return 65 }
+        if lower.contains("france inter") || lower.contains("franceinter") { return 1 }
+        if lower.contains("france info") || lower.contains("franceinfo") { return 2 }
+        if lower.contains("france musique") || lower.contains("francemusique") { return 4 }
+        if lower.contains("france culture") || lower.contains("franceculture") { return 5 }
+        if lower.contains("mouv") { return 6 }
+        if lower.contains("fip") { return 7 }
+        return nil
+    }
+    
+    private static func fetchRadioFranceLiveMeta(stationId: Int) async -> String? {
+        guard let url = URL(string: "https://api.radiofrance.fr/livemeta/pull/\(stationId)") else { return nil }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 6
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        guard let (data, _) = try? await URLSession.shared.data(for: req),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let steps = json["steps"] as? [String: [String: Any]],
+              let levels = json["levels"] as? [[String: Any]] else {
+            return nil
+        }
+        
+        let nowTs = Date().timeIntervalSince1970
+        var activeStepDicts: [[String: Any]] = []
+        
+        for level in levels {
+            if let items = level["items"] as? [String] {
+                for stepId in items {
+                    if let step = steps[stepId] {
+                        let start = (step["start"] as? Double) ?? Double((step["start"] as? Int) ?? 0)
+                        let end = (step["end"] as? Double) ?? Double((step["end"] as? Int) ?? 0)
+                        if start <= nowTs && (end == 0 || nowTs <= end) {
+                            activeStepDicts.append(step)
+                        }
+                    }
+                }
+            }
+        }
+        
+        if activeStepDicts.isEmpty {
+            activeStepDicts = Array(steps.values)
+        }
+        
+        // Prefer track/song metadata (authors + title) or show/episode title
+        var songTitle: String?
+        var showTitle: String?
+        
+        for step in activeStepDicts {
+            let title = (step["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !title.isEmpty else { continue }
+            let authors = (step["authors"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                ?? (step["performers"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                ?? ""
+            let visualType = (step["visualType"] as? String)?.lowercased() ?? ""
+            
+            if !authors.isEmpty && !title.localizedCaseInsensitiveContains(authors) {
+                songTitle = "\(authors) — \(title)"
+            } else if visualType.contains("song") || step[" songId"] != nil || step["discNumber"] != nil {
+                songTitle = title
+            } else if showTitle == nil {
+                let subtitle = (step["titleConcept"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if !subtitle.isEmpty && !title.localizedCaseInsensitiveContains(subtitle) {
+                    showTitle = "\(subtitle) • \(title)"
+                } else {
+                    showTitle = title
+                }
+            }
+        }
+        
+        if let song = songTitle, let show = showTitle, !song.localizedCaseInsensitiveContains(show) {
+            return "♪ \(song) (\(show))"
+        }
+        return songTitle ?? showTitle
+    }
+    
+    private static func fetchIcyStreamTitle(from urlString: String) async -> String? {
+        guard let url = URL(string: urlString), !urlString.lowercased().hasSuffix(".m3u8") else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue("1", forHTTPHeaderField: "Icy-MetaData")
+        request.setValue("VLC/3.0.20 LibVLC/3.0.20", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 5
+        
+        do {
+            let (bytes, response) = try await URLSession.shared.bytes(for: request)
+            guard let httpResp = response as? HTTPURLResponse,
+                  let metaintStr = httpResp.value(forHTTPHeaderField: "icy-metaint"),
+                  let metaint = Int(metaintStr),
+                  metaint > 0 && metaint <= 65536 else {
+                return nil
+            }
+            
+            var buffer = Data()
+            buffer.reserveCapacity(metaint + 512)
+            for try await byte in bytes {
+                buffer.append(byte)
+                if buffer.count >= metaint + 1 {
+                    let metaLen = Int(buffer[metaint]) * 16
+                    if metaLen == 0 {
+                        return nil
+                    }
+                    if buffer.count >= metaint + 1 + metaLen {
+                        let metaData = buffer.subdata(in: (metaint + 1)..<(metaint + 1 + metaLen))
+                        let metaStr = String(data: metaData, encoding: .utf8)
+                            ?? String(data: metaData, encoding: .isoLatin1)
+                            ?? ""
+                        if let range = metaStr.range(of: "StreamTitle='") {
+                            let after = metaStr[range.upperBound...]
+                            if let endRange = after.range(of: "';") {
+                                let extracted = String(after[..<endRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                                return extracted.isEmpty ? nil : extracted
+                            }
+                        }
+                        return nil
+                    }
+                }
+                if buffer.count > metaint + 4096 {
+                    break
+                }
+            }
+        } catch {
+            return nil
+        }
+        return nil
     }
 }

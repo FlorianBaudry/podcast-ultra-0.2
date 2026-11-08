@@ -1,0 +1,30 @@
+{
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Services/WatchSessionManager.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchSessionManager.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchSessionManager.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchSessionManager.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchSessionManager.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchSessionManager.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Services/WeatherService.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WeatherService.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WeatherService.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WeatherService.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WeatherService.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WeatherService.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Views/WatchCompanionView.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchCompanionView.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchCompanionView.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchCompanionView.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchCompanionView.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/WatchCompanionView.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps"
+  }
+}

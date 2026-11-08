@@ -1,43 +1,355 @@
 import Foundation
+import NaturalLanguage
 
 enum LangCode: String, Codable, CaseIterable, Identifiable {
-    case en, fr, es, de, it, pt, ja
+    case en, zh, hi, es, fr, ar, bn, pt, ru, ur, id, de, ja, sw, mr, te, tr, ko, vi, it
     var id: String { rawValue }
     
     var name: String {
         switch self {
         case .en: return "English"
-        case .fr: return "Français"
+        case .zh: return "中文 (Mandarin)"
+        case .hi: return "हिन्दी (Hindi)"
         case .es: return "Español"
-        case .de: return "Deutsch"
-        case .it: return "Italiano"
+        case .fr: return "Français"
+        case .ar: return "العربية (Arabic)"
+        case .bn: return "বাংলা (Bengali)"
         case .pt: return "Português"
-        case .ja: return "日本語"
+        case .ru: return "Русский (Russian)"
+        case .ur: return "اردو (Urdu)"
+        case .id: return "Bahasa Indonesia"
+        case .de: return "Deutsch"
+        case .ja: return "日本語 (Japanese)"
+        case .sw: return "Kiswahili (Swahili)"
+        case .mr: return "मराठी (Marathi)"
+        case .te: return "తెలుగు (Telugu)"
+        case .tr: return "Türkçe"
+        case .ko: return "한국어 (Korean)"
+        case .vi: return "Tiếng Việt"
+        case .it: return "Italiano"
         }
     }
     
     var itunes: String {
         switch self {
         case .en: return "us"
-        case .fr: return "fr"
+        case .zh: return "cn"
+        case .hi: return "in"
         case .es: return "es"
-        case .de: return "de"
-        case .it: return "it"
+        case .fr: return "fr"
+        case .ar: return "sa"
+        case .bn: return "in"
         case .pt: return "pt"
+        case .ru: return "ru"
+        case .ur: return "pk"
+        case .id: return "id"
+        case .de: return "de"
         case .ja: return "jp"
+        case .sw: return "ke"
+        case .mr: return "in"
+        case .te: return "in"
+        case .tr: return "tr"
+        case .ko: return "kr"
+        case .vi: return "vn"
+        case .it: return "it"
         }
     }
     
     var radioSearch: String {
         switch self {
         case .en: return "english"
-        case .fr: return "french"
+        case .zh: return "chinese"
+        case .hi: return "hindi"
         case .es: return "spanish"
-        case .de: return "german"
-        case .it: return "italian"
+        case .fr: return "french"
+        case .ar: return "arabic"
+        case .bn: return "bengali"
         case .pt: return "portuguese"
+        case .ru: return "russian"
+        case .ur: return "urdu"
+        case .id: return "indonesian"
+        case .de: return "german"
         case .ja: return "japanese"
+        case .sw: return "swahili"
+        case .mr: return "marathi"
+        case .te: return "telugu"
+        case .tr: return "turkish"
+        case .ko: return "korean"
+        case .vi: return "vietnamese"
+        case .it: return "italian"
         }
+    }
+    
+    var nlLanguage: NLLanguage {
+        switch self {
+        case .en: return .english
+        case .zh: return .simplifiedChinese
+        case .hi: return .hindi
+        case .es: return .spanish
+        case .fr: return .french
+        case .ar: return .arabic
+        case .bn: return .bengali
+        case .pt: return .portuguese
+        case .ru: return .russian
+        case .ur: return .urdu
+        case .id: return .indonesian
+        case .de: return .german
+        case .ja: return .japanese
+        case .sw: return NLLanguage(rawValue: "sw")
+        case .mr: return .marathi
+        case .te: return .telugu
+        case .tr: return .turkish
+        case .ko: return .korean
+        case .vi: return .vietnamese
+        case .it: return .italian
+        }
+    }
+    
+    static func fromItunesCountry(_ country: String) -> LangCode {
+        let lower = country.lowercased()
+        switch lower {
+        case "fr", "be", "ch", "ca": return .fr
+        case "us", "gb", "uk", "au", "nz", "ie": return .en
+        case "cn", "tw", "hk", "sg": return .zh
+        case "es", "mx", "ar", "co", "cl", "pe": return .es
+        case "sa", "ae", "eg", "ma", "dz", "tn", "qa", "kw": return .ar
+        case "bd": return .bn
+        case "pt", "br": return .pt
+        case "ru", "by", "kz": return .ru
+        case "pk": return .ur
+        case "id": return .id
+        case "de", "at": return .de
+        case "jp": return .ja
+        case "ke", "tz": return .sw
+        case "tr": return .tr
+        case "kr": return .ko
+        case "vn": return .vi
+        case "it": return .it
+        default:
+            return LangCode.allCases.first(where: { $0.itunes == lower }) ?? .en
+        }
+    }
+}
+
+/// Détecteur et filtre linguistique intelligent pour éviter l'affichage de contenus étrangers (ex: russes, anglais, chinois...) quand une langue précise (ex: Français) est sélectionnée.
+final class LanguageContentFilter: @unchecked Sendable {
+    static let shared = LanguageContentFilter()
+    
+    private let cacheLock = NSLock()
+    private var matchCache: [String: Bool] = [:]
+    
+    private static let cyrillicScalarRange = (0x0400...0x04FF)
+    private static let arabicScalarRange = (0x0600...0x06FF)
+    private static let devanagariScalarRange = (0x0900...0x097F)
+    private static let bengaliScalarRange = (0x0980...0x09FF)
+    private static let teluguScalarRange = (0x0C00...0x0C7F)
+    private static let cjkScalarRange = (0x4E00...0x9FFF)
+    private static let hiraganaKatakanaRange = (0x3040...0x30FF)
+    private static let hangulScalarRange = (0xAC00...0xD7AF)
+    
+    /// Vérifie si le texte utilise un alphabet incompatible avec la langue sélectionnée (ex: cyrillique russe, arabe, CJK quand on est en français)
+    func hasIncompatibleScript(text: String, targetLang: LangCode) -> Bool {
+        var cyrillicCount = 0
+        var arabicCount = 0
+        var devanagariCount = 0
+        var bengaliCount = 0
+        var teluguCount = 0
+        var cjkCount = 0
+        var japaneseKanaCount = 0
+        var hangulCount = 0
+        
+        for scalar in text.unicodeScalars {
+            let v = Int(scalar.value)
+            if Self.cyrillicScalarRange.contains(v) { cyrillicCount += 1 }
+            else if Self.arabicScalarRange.contains(v) { arabicCount += 1 }
+            else if Self.devanagariScalarRange.contains(v) { devanagariCount += 1 }
+            else if Self.bengaliScalarRange.contains(v) { bengaliCount += 1 }
+            else if Self.teluguScalarRange.contains(v) { teluguCount += 1 }
+            else if Self.cjkScalarRange.contains(v) { cjkCount += 1 }
+            else if Self.hiraganaKatakanaRange.contains(v) { japaneseKanaCount += 1 }
+            else if Self.hangulScalarRange.contains(v) { hangulCount += 1 }
+        }
+        
+        switch targetLang {
+        case .ru:
+            return arabicCount > 2 || devanagariCount > 2 || cjkCount > 2 || hangulCount > 2
+        case .ar, .ur:
+            return cyrillicCount > 2 || devanagariCount > 2 || cjkCount > 2 || hangulCount > 2
+        case .hi, .mr:
+            return cyrillicCount > 2 || arabicCount > 2 || cjkCount > 2 || hangulCount > 2
+        case .bn:
+            return cyrillicCount > 2 || arabicCount > 2 || cjkCount > 2 || hangulCount > 2
+        case .te:
+            return cyrillicCount > 2 || arabicCount > 2 || cjkCount > 2 || hangulCount > 2
+        case .zh:
+            return cyrillicCount > 2 || arabicCount > 2 || devanagariCount > 2 || hangulCount > 2
+        case .ja:
+            return cyrillicCount > 2 || arabicCount > 2 || devanagariCount > 2 || hangulCount > 2
+        case .ko:
+            return cyrillicCount > 2 || arabicCount > 2 || devanagariCount > 2
+        default:
+            // Langues à alphabet latin (.fr, .en, .es, .pt, .de, .it, .tr, .vi, .id, .sw)
+            if cyrillicCount >= 2 || arabicCount >= 2 || devanagariCount >= 2 ||
+               bengaliCount >= 2 || teluguCount >= 2 || cjkCount >= 2 ||
+               japaneseKanaCount >= 2 || hangulCount >= 2 {
+                return true
+            }
+            return false
+        }
+    }
+    
+    /// Détecte si un podcast correspond bien à la langue sélectionnée par l'utilisateur (résultat mis en cache en mémoire pour 0 latence UI)
+    func matchesLanguage(_ podcast: Podcast, targetLang: LangCode) -> Bool {
+        let cacheKey = "\(podcast.collectionId)|\(targetLang.rawValue)"
+        cacheLock.lock()
+        if let cached = matchCache[cacheKey] {
+            cacheLock.unlock()
+            return cached
+        }
+        cacheLock.unlock()
+        
+        let result = computeMatchesLanguage(podcast, targetLang: targetLang)
+        
+        cacheLock.lock()
+        matchCache[cacheKey] = result
+        cacheLock.unlock()
+        return result
+    }
+    
+    private func computeMatchesLanguage(_ podcast: Podcast, targetLang: LangCode) -> Bool {
+        let title = podcast.collectionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let desc = (podcast.description ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let artist = podcast.artistName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let combined = "\(title) \(artist) \(desc)"
+        
+        // 1. Rejet immédiat des alphabets étrangers incompatibles (ex: Russe cyrillique, Arabe, Chinois, etc. quand on est en Français)
+        if hasIncompatibleScript(text: combined, targetLang: targetLang) {
+            return false
+        }
+        
+        // 2. Pour le Français : filtrage strict contre les podcasts en anglais, espagnol, allemand, russe translittéré, etc.
+        if targetLang == .fr {
+            let lowerTitle = title.lowercased()
+            let lowerDesc = desc.lowercased()
+            let lowerArtist = artist.lowercased()
+            let fullLower = "\(lowerTitle) \(lowerArtist) \(lowerDesc)"
+            
+            // Sources françaises de confiance
+            let trustedFrenchMarkers = [
+                "france inter", "france culture", "france info", "radio france", "arte ", "arte radio",
+                "ina ", "collège de france", "cnrs", "binge audio", "louie media", "nouvelles écoutes",
+                "slate.fr", "slate podcasts", "littérature audio", "bayard", "quelle histoire",
+                "l'école des loisirs", "albin michel", "choses à savoir", "futura", "les échos",
+                "le monde", "rtl", "europe 1", "rmc", "loyal books", "gutenberg"
+            ]
+            if trustedFrenchMarkers.contains(where: { fullLower.contains($0) }) && !hasEnglishOnlyMarkers(lowerTitle, lowerDesc) {
+                return true
+            }
+            
+            // Rejet des marqueurs typiquement anglais dans les titres/descriptions
+            if hasEnglishOnlyMarkers(lowerTitle, lowerDesc) {
+                return false
+            }
+            
+            // Analyse NLLanguageRecognizer sur le titre + description
+            let sample = desc.count >= 25 ? "\(title). \(desc)" : title
+            if sample.count >= 12 {
+                let recognizer = NLLanguageRecognizer()
+                recognizer.processString(sample)
+                let hypotheses = recognizer.languageHypotheses(withMaximum: 3)
+                if let dominant = recognizer.dominantLanguage {
+                    if dominant == .french {
+                        return true
+                    }
+                    let frScore = hypotheses[.french] ?? 0.0
+                    let domScore = hypotheses[dominant] ?? 0.0
+                    // Si une autre langue (ex: anglais, russe, espagnol, allemand...) domine nettement et que le français est quasi absent
+                    if dominant != .undetermined && domScore > 0.58 && frScore < 0.18 {
+                        // Vérifier s'il y a quand même des mots/accents français explicites
+                        if !containsExplicitFrenchSignals(fullLower) {
+                            return false
+                        }
+                    }
+                }
+            }
+            
+            return true
+        }
+        
+        // 3. Pour les autres langues : vérification via NLLanguageRecognizer quand suffisamment de texte est présent
+        let sample = desc.count >= 30 ? "\(title). \(desc)" : title
+        if sample.count >= 18 {
+            let recognizer = NLLanguageRecognizer()
+            recognizer.processString(sample)
+            if let dominant = recognizer.dominantLanguage, dominant != .undetermined {
+                let targetNL = targetLang.nlLanguage
+                if dominant == targetNL {
+                    return true
+                }
+                if targetLang == .zh && (dominant == .simplifiedChinese || dominant == .traditionalChinese) {
+                    return true
+                }
+                let hypotheses = recognizer.languageHypotheses(withMaximum: 3)
+                let targetScore = hypotheses[targetNL] ?? 0.0
+                let domScore = hypotheses[dominant] ?? 0.0
+                // Si le contenu est clairement dans une autre langue (score > 0.72) et pas dans la langue cible
+                if domScore > 0.72 && targetScore < 0.12 {
+                    return false
+                }
+            }
+        }
+        
+        return true
+    }
+    
+    private func hasEnglishOnlyMarkers(_ lowerTitle: String, _ lowerDesc: String) -> Bool {
+        let englishTitlePhrases = [
+            " the ", "the ", " with ", " for kids", "bedtime stories", "sleep tight",
+            "podcast for ", "daily news", "true crime ", "stories podcast", "history of ",
+            "how to ", "unabridged", "audiobook", "read by ", "narrated by ", "hosted by ",
+            "full audiobook", "fairy tales", "nursery rhymes", "science podcast", "curious universe",
+            "small steps, giant leaps", "we have a podcast", "hardcore history", "no such thing as"
+        ]
+        for marker in englishTitlePhrases {
+            if lowerTitle.contains(marker) && !containsExplicitFrenchSignals(lowerTitle) {
+                return true
+            }
+        }
+        
+        let paddedDesc = " \(lowerDesc) "
+        let englishStopWords = [" the ", " and ", " with ", " from ", " this ", " that ", " your ", " about ", " episodes ", " listen ", " every week "]
+        var engHits = 0
+        for w in englishStopWords {
+            if paddedDesc.contains(w) { engHits += 1 }
+        }
+        if engHits >= 3 && !containsExplicitFrenchSignals(lowerDesc) {
+            return true
+        }
+        return false
+    }
+    
+    private func containsExplicitFrenchSignals(_ lowerText: String) -> Bool {
+        let frenchSignals = [
+            " le ", " la ", " les ", " des ", " une ", " dans ", " pour ", " avec ", " sur ",
+            " par ", " cette ", " sont ", " histoire", " épisode", " écoute", " découvrir",
+            " aujourd'hui", " français", " livre audio", " chaque ", " au cœur", " émission"
+        ]
+        var hits = 0
+        let padded = " \(lowerText) "
+        for sig in frenchSignals {
+            if padded.contains(sig) { hits += 1 }
+        }
+        let hasFrenchAccents = lowerText.contains("é") || lowerText.contains("è") || lowerText.contains("ê") || lowerText.contains("à") || lowerText.contains("ù") || lowerText.contains("œ") || lowerText.contains("ç")
+        return hits >= 2 || (hits >= 1 && hasFrenchAccents)
+    }
+    
+    func filterPodcasts(_ podcasts: [Podcast], for targetLang: LangCode) -> [Podcast] {
+        let filtered = podcasts.filter { matchesLanguage($0, targetLang: targetLang) }
+        // Si le filtre garde au moins quelques résultats, on les renvoie ; sinon on évite un écran vide tout en écartant les alphabets incompatibles
+        if !filtered.isEmpty {
+            return filtered
+        }
+        return podcasts.filter { !hasIncompatibleScript(text: "\($0.collectionName) \($0.artistName) \($0.description ?? "")", targetLang: targetLang) }
     }
 }
 
@@ -47,9 +359,10 @@ class Translations {
     private let data: [LangCode: [String: String]] = [
         .en: [
             "discover": "Podcasts",
-            "episodes_feed": "Episodes",
+            "episodes_feed": "Favorites",
+            "subscriptions_btn": "Podcasts",
             "radio": "Radio",
-            "audiobooks": "Audiobooks",
+            "audiobooks": "Discover",
             "recent": "History",
             "playlists": "Playlists",
             "library": "Library",
@@ -107,9 +420,10 @@ class Translations {
         ],
         .fr: [
             "discover": "Podcasts",
-            "episodes_feed": "Episodes",
+            "episodes_feed": "Favoris",
+            "subscriptions_btn": "Podcasts",
             "radio": "Radio",
-            "audiobooks": "Livres",
+            "audiobooks": "Découvrir",
             "recent": "Historique",
             "playlists": "Listes",
             "library": "Historique",
@@ -167,9 +481,10 @@ class Translations {
         ],
         .es: [
             "discover": "Podcasts",
-            "episodes_feed": "Episodios",
+            "episodes_feed": "Favoritos",
+            "subscriptions_btn": "Podcasts",
             "radio": "Radio",
-            "audiobooks": "Audiolibros",
+            "audiobooks": "Descubrir",
             "recent": "Historial",
             "playlists": "Listas",
             "library": "Biblioteca",
@@ -222,13 +537,15 @@ class Translations {
             "now_playing": "Reproduciendo",
             "up_next": "A continuación",
             "mark_played": "Marcar como reproducido",
-            "mark_unplayed": "Marcar como no reproducido"
+            "mark_unplayed": "Marcar como no reproducido",
+            "hide": "Ocultar"
         ],
         .de: [
             "discover": "Podcasts",
-            "episodes_feed": "Folgen",
+            "episodes_feed": "Favoriten",
+            "subscriptions_btn": "Podcasts",
             "radio": "Radio",
-            "audiobooks": "Hörbücher",
+            "audiobooks": "Entdecken",
             "recent": "Verlauf",
             "playlists": "Playlists",
             "library": "Bibliothek",
@@ -281,13 +598,15 @@ class Translations {
             "now_playing": "Läuft gerade",
             "up_next": "Nächste Titel",
             "mark_played": "Als gespielt markieren",
-            "mark_unplayed": "Als ungespielt markieren"
+            "mark_unplayed": "Als ungespielt markieren",
+            "hide": "Ausblenden"
         ],
         .it: [
             "discover": "Podcast",
-            "episodes_feed": "Episodi",
+            "episodes_feed": "Preferiti",
+            "subscriptions_btn": "Podcast",
             "radio": "Radio",
-            "audiobooks": "Audiolibri",
+            "audiobooks": "Scopri",
             "recent": "Cronologia",
             "playlists": "Playlist",
             "library": "Libreria",
@@ -340,13 +659,15 @@ class Translations {
             "now_playing": "In riproduzione",
             "up_next": "In coda",
             "mark_played": "Segna come riprodotto",
-            "mark_unplayed": "Segna como non riprodotto"
+            "mark_unplayed": "Segna come non riprodotto",
+            "hide": "Nascondi"
         ],
         .pt: [
             "discover": "Podcasts",
-            "episodes_feed": "Episódios",
+            "episodes_feed": "Favoritos",
+            "subscriptions_btn": "Podcasts",
             "radio": "Rádio",
-            "audiobooks": "Audiolivros",
+            "audiobooks": "Descobrir",
             "recent": "Histórico",
             "playlists": "Playlists",
             "library": "Biblioteca",
@@ -399,13 +720,15 @@ class Translations {
             "now_playing": "Reproduzindo agora",
             "up_next": "A seguir",
             "mark_played": "Marcar como reproduzido",
-            "mark_unplayed": "Marcar como não reproduzido"
+            "mark_unplayed": "Marcar como não reproduzido",
+            "hide": "Ocultar"
         ],
         .ja: [
             "discover": "ポッドキャスト",
-            "episodes_feed": "エピソード",
+            "episodes_feed": "お気に入り",
+            "subscriptions_btn": "ポッドキャスト",
             "radio": "ラジオ",
-            "audiobooks": "オーディオブック",
+            "audiobooks": "見つける",
             "recent": "履歴",
             "playlists": "プレイリスト",
             "library": "ライブラリ",
@@ -458,7 +781,85 @@ class Translations {
             "now_playing": "再生中",
             "up_next": "次はこちら",
             "mark_played": "再生済みにする",
-            "mark_unplayed": "未再生にする"
+            "mark_unplayed": "未再生にする",
+            "hide": "非表示"
+        ],
+        .zh: [
+            "discover": "播客", "episodes_feed": "收藏", "subscriptions_btn": "播客", "radio": "电台",
+            "audiobooks": "发现", "recent": "历史", "playlists": "播放列表", "library": "媒体库",
+            "player": "播放器", "search_placeholder": "搜索播客、电台、有声书...", "recommended": "热门",
+            "see_all": "查看全部", "latest_from_favs": "最新收藏单集", "episodes": "单集", "latest": "最新",
+            "subscribe": "订阅", "subscribed": "已订阅", "ai_summary": "AI 摘要", "add_to_playlist": "添加到列表",
+            "play_next": "下一首播放", "add_to_queue": "加入队列", "my_playlists": "我的播放列表",
+            "new_playlist": "新建播放列表", "world_radio": "世界电台", "language": "语言", "settings": "设置",
+            "playback_speed": "播放速度", "skip_intro": "跳过片头 (30秒)", "accent_color": "主题色",
+            "theme": "外观", "theme_light": "浅色", "theme_dark": "深色", "theme_black": "OLED 纯黑",
+            "clear_cache": "清除缓存", "your_favorites": "您的收藏", "results": "结果", "download": "下载",
+            "downloading": "下载中...", "remove_download": "删除离线文件", "offline": "离线",
+            "filter_all": "全部", "filter_unplayed": "未播放", "now_playing": "正在播放", "up_next": "接下来播放"
+        ],
+        .hi: [
+            "discover": "पॉडकास्ट", "episodes_feed": "पसंदीदा", "subscriptions_btn": "पॉडकास्ट", "radio": "रेडियो",
+            "audiobooks": "खोजें", "recent": "इतिहास", "playlists": "प्लेलिस्ट", "library": "लाइब्रेरी",
+            "player": "प्लेयर", "search_placeholder": "पॉडकास्ट, रेडियो, किताबें खोजें...", "recommended": "लोकप्रिय",
+            "episodes": "एपिसोड", "subscribe": "सब्सक्राइब", "subscribed": "सब्सक्राइब्ड", "language": "भाषा",
+            "settings": "सेटिंग्स", "playback_speed": "प्लेबैक गति", "skip_intro": "इंट्रो छोड़ें (30s)",
+            "accent_color": "एक्सेंट रंग", "theme": "थीम", "your_favorites": "आपके पसंदीदा",
+            "filter_all": "सभी", "filter_unplayed": "अनसुने", "now_playing": "अभी चल रहा है", "up_next": "अगला"
+        ],
+        .ar: [
+            "discover": "بودكاست", "episodes_feed": "المفضلة", "subscriptions_btn": "بودكاست", "radio": "راديو",
+            "audiobooks": "اكتشف", "recent": "السجل", "playlists": "قوائم التشغيل", "library": "المكتبة",
+            "player": "المشغل", "search_placeholder": "ابحث عن بودكاست، راديو، كتب...", "recommended": "شائع",
+            "episodes": "الحلقات", "subscribe": "اشتراك", "subscribed": "مشترك", "language": "اللغة",
+            "settings": "الإعدادات", "playback_speed": "سرعة التشغيل", "skip_intro": "تخطي المقدمة (30ث)",
+            "accent_color": "اللون المميز", "theme": "المظهر", "your_favorites": "مفضلاتك",
+            "filter_all": "الكل", "filter_unplayed": "غير مشغل", "now_playing": "قيد التشغيل", "up_next": "التالي"
+        ],
+        .ru: [
+            "discover": "Подкасты", "episodes_feed": "Избранное", "subscriptions_btn": "Подкасты", "radio": "Радио",
+            "audiobooks": "Обзор", "recent": "История", "playlists": "Плейлисты", "library": "Библиотека",
+            "player": "Плеер", "search_placeholder": "Поиск подкастов, радио, книг...", "recommended": "Популярное",
+            "episodes": "Выпуски", "subscribe": "Подписаться", "subscribed": "В подписках", "language": "Язык",
+            "settings": "Настройки", "playback_speed": "Скорость", "skip_intro": "Пропуск интро (30с)",
+            "accent_color": "Цвет акцента", "theme": "Тема", "your_favorites": "Ваше избранное",
+            "filter_all": "Все", "filter_unplayed": "Непрослушанные", "now_playing": "Сейчас играет", "up_next": "Далее"
+        ],
+        .tr: [
+            "discover": "Podcast'ler", "episodes_feed": "Favoriler", "subscriptions_btn": "Podcast'ler", "radio": "Radyo",
+            "audiobooks": "Keşfet", "recent": "Geçmiş", "playlists": "Çalma Listeleri", "library": "Kitaplık",
+            "player": "Oynatıcı", "search_placeholder": "Podcast, radyo, kitap ara...", "recommended": "Popüler",
+            "episodes": "Bölümler", "subscribe": "Abone Ol", "subscribed": "Abone Olundu", "language": "Dil",
+            "settings": "Ayarlar", "playback_speed": "Oynatma Hızı", "skip_intro": "Girişi Atla (30sn)",
+            "accent_color": "Vurgu Rengi", "theme": "Tema", "your_favorites": "Favorileriniz",
+            "filter_all": "Tümü", "filter_unplayed": "Dinlenmedi", "now_playing": "Şimdi Çalıyor", "up_next": "Sıradaki"
+        ],
+        .ko: [
+            "discover": "팟캐스트", "episodes_feed": "즐겨찾기", "subscriptions_btn": "팟캐스트", "radio": "라디오",
+            "audiobooks": "탐색", "recent": "기록", "playlists": "재생목록", "library": "보관함",
+            "player": "플레이어", "search_placeholder": "팟캐스트, 라디오, 오디오북 검색...", "recommended": "인기",
+            "episodes": "에피소드", "subscribe": "구독", "subscribed": "구독 중", "language": "언어",
+            "settings": "설정", "playback_speed": "재생 속도", "skip_intro": "인트로 건너뛰기 (30초)",
+            "accent_color": "강조 색상", "theme": "테마", "your_favorites": "내 즐겨찾기",
+            "filter_all": "전체", "filter_unplayed": "미재생", "now_playing": "재생 중", "up_next": "다음 재생"
+        ],
+        .vi: [
+            "discover": "Podcast", "episodes_feed": "Yêu thích", "subscriptions_btn": "Podcast", "radio": "Radio",
+            "audiobooks": "Khám phá", "recent": "Lịch sử", "playlists": "Danh sách phát", "library": "Thư viện",
+            "player": "Trình phát", "search_placeholder": "Tìm podcast, radio, sách nói...", "recommended": "Phổ biến",
+            "episodes": "Tập", "subscribe": "Theo dõi", "subscribed": "Đã theo dõi", "language": "Ngôn ngữ",
+            "settings": "Cài đặt", "playback_speed": "Tốc độ phát", "skip_intro": "Bỏ qua mở đầu (30s)",
+            "accent_color": "Màu nhấn", "theme": "Giao diện", "your_favorites": "Yêu thích của bạn",
+            "filter_all": "Tất cả", "filter_unplayed": "Chưa nghe", "now_playing": "Đang phát", "up_next": "Tiếp theo"
+        ],
+        .id: [
+            "discover": "Podcast", "episodes_feed": "Favorit", "subscriptions_btn": "Podcast", "radio": "Radio",
+            "audiobooks": "Jelajahi", "recent": "Riwayat", "playlists": "Daftar Putar", "library": "Koleksi",
+            "player": "Pemutar", "search_placeholder": "Cari podcast, radio, buku audio...", "recommended": "Populer",
+            "episodes": "Episode", "subscribe": "Langganan", "subscribed": "Berlangganan", "language": "Bahasa",
+            "settings": "Pengaturan", "playback_speed": "Kecepatan Putar", "skip_intro": "Lewati Intro (30d)",
+            "accent_color": "Warna Aksen", "theme": "Tema", "your_favorites": "Favorit Anda",
+            "filter_all": "Semua", "filter_unplayed": "Belum Diputar", "now_playing": "Sedang Diputar", "up_next": " Berikutnya"
         ]
     ]
     
@@ -567,6 +968,36 @@ class Translations {
             "Music": "音楽",
             "Science": "科学",
             "Sports": "スポーツ"
+        ],
+        .zh: [
+            "All": "所有类别", "News": "新闻", "Comedy": "喜剧", "Technology": "科技",
+            "Business": "商业", "Society & Culture": "社会与文化", "True Crime": "真实犯罪",
+            "Health": "健康", "Education": "教育", "History": "历史", "Music": "音乐",
+            "Science": "科学", "Sports": "体育"
+        ],
+        .ru: [
+            "All": "Все категории", "News": "Новости", "Comedy": "Комедия", "Technology": "Технологии",
+            "Business": "Бизнес", "Society & Culture": "Общество и культура", "True Crime": "Криминал",
+            "Health": "Здоровье", "Education": "Образование", "History": "История", "Music": "Музыка",
+            "Science": "Наука", "Sports": "Спорт"
+        ],
+        .ar: [
+            "All": "جميع الفئات", "News": "أخبار", "Comedy": "كوميديا", "Technology": "تكنولوجيا",
+            "Business": "أعمال", "Society & Culture": "المجتمع والثقافة", "True Crime": "جرائم حقيقية",
+            "Health": "صحة", "Education": "تعليم", "History": "تاريخ", "Music": "موسيقى",
+            "Science": "علوم", "Sports": "رياضة"
+        ],
+        .tr: [
+            "All": "Tüm Kategoriler", "News": "Haberler", "Comedy": "Komedi", "Technology": "Teknoloji",
+            "Business": "İş Dünyası", "Society & Culture": "Toplum ve Kültür", "True Crime": "Gerçek Suç",
+            "Health": "Sağlık", "Education": "Eğitim", "History": "Tarih", "Music": "Müzik",
+            "Science": "Bilim", "Sports": "Spor"
+        ],
+        .ko: [
+            "All": "모든 카테고리", "News": "뉴스", "Comedy": "코미디", "Technology": "기술",
+            "Business": "비즈니스", "Society & Culture": "사회 및 문화", "True Crime": "실제 범죄",
+            "Health": "건강", "Education": "교육", "History": "역사", "Music": "음악",
+            "Science": "과학", "Sports": "스포츠"
         ]
     ]
 
@@ -599,7 +1030,7 @@ class Translations {
             "kids": "Niños",
             "personal_growth": "Crecimiento Personal",
             "classics": "Clásicos",
-            "fiction": "Ficção"
+            "fiction": "Ficción"
         ],
         .de: [
             "all": "Alle",

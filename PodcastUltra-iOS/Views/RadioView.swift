@@ -119,42 +119,53 @@ struct RadioView: View {
                 }
                 .listStyle(PlainListStyle())
                 .background(Color.clear)
+                .refreshable {
+                    await fetchPopularStationsAsync(force: true)
+                }
             }
         }
         .ipadMaxWidth()
         .padding(.bottom, 80)
         .onAppear {
             self.popularStations = storage.cachedRadioStations
-            if popularStations.isEmpty {
-                fetchPopularStations()
+            let needsAdFreeUpgrade = popularStations.contains(where: { $0.url.contains("adwz") || $0.url.contains("streamer-01.rtl.fr") || $0.url.contains("franceinter-midfi") })
+            if popularStations.isEmpty || needsAdFreeUpgrade {
+                fetchPopularStations(force: true)
             }
         }
-        .onChange(of: storage.currentLanguage) { _ in
+        .onChange(of: storage.currentLanguage) { _, _ in
+            self.popularStations = []
             fetchPopularStations(force: true)
         }
     }
     
     private func fetchPopularStations(force: Bool = false) {
+        Task {
+            await fetchPopularStationsAsync(force: force)
+        }
+    }
+    
+    private func fetchPopularStationsAsync(force: Bool = false) async {
         if !force && !popularStations.isEmpty {
             return
         }
         
-        isLoading = popularStations.isEmpty
-        Task {
-            do {
-                let results = try await APIService.shared.getRadioStations(
-                    radioSearch: storage.currentLanguage.radioSearch,
-                    langCode: storage.currentLanguage.rawValue
-                )
-                await MainActor.run {
-                    self.popularStations = results
-                    storage.cachedRadioStations = results
-                    self.isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.isLoading = false
-                }
+        await MainActor.run {
+            isLoading = popularStations.isEmpty
+        }
+        do {
+            let results = try await APIService.shared.getRadioStations(
+                radioSearch: storage.currentLanguage.radioSearch,
+                langCode: storage.currentLanguage.rawValue
+            )
+            await MainActor.run {
+                self.popularStations = results
+                storage.cachedRadioStations = results
+                self.isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                self.isLoading = false
             }
         }
     }

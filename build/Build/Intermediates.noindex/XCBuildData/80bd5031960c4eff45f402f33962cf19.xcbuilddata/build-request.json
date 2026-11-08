@@ -1,0 +1,69 @@
+{
+  "buildCommand" : {
+    "command" : "build",
+    "skipDependencies" : false,
+    "style" : "buildOnly"
+  },
+  "configuredTargets" : [
+    {
+      "guid" : "118df6592e03a2a66163d3288de4ee24a927d15cab2c72644427e300d1cf59ca"
+    },
+    {
+      "guid" : "118df6592e03a2a66163d3288de4ee242ae1febd4b9de434d6a77843be453ed0"
+    },
+    {
+      "guid" : "118df6592e03a2a66163d3288de4ee24c140edb457a1efd0f8876596cde65b2c"
+    }
+  ],
+  "containerPath" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra.xcodeproj",
+  "continueBuildingAfterErrors" : false,
+  "dependencyScope" : "workspace",
+  "enableIndexBuildArena" : false,
+  "hideShellScriptEnvironment" : false,
+  "parameters" : {
+    "action" : "build",
+    "activeArchitecture" : "undefined_arch",
+    "activeRunDestination" : {
+      "disableOnlyActiveArch" : true,
+      "hostTargetedPlatform" : null,
+      "platform" : "iphonesimulator",
+      "sdk" : "iphonesimulator27.2",
+      "sdkVariant" : "iphonesimulator",
+      "supportedArchitectures" : [
+        "i386",
+        "x86_64"
+      ],
+      "targetArchitecture" : "undefined_arch"
+    },
+    "arenaInfo" : {
+      "buildIntermediatesPath" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex",
+      "buildProductsPath" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Products",
+      "derivedDataPath" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build",
+      "indexDataStoreFolderPath" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Index.noindex/DataStore",
+      "indexEnableDataStore" : true,
+      "indexPCHPath" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Index.noindex/PrecompiledHeaders",
+      "pchPath" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PrecompiledHeaders"
+    },
+    "configurationName" : "Debug",
+    "overrides" : {
+      "commandLine" : {
+        "table" : {
+          "CODE_SIGNING_ALLOWED" : "NO"
+        }
+      },
+      "synthesized" : {
+        "table" : {
+          "ACTION" : "build",
+          "ENABLE_PREVIEWS" : "NO",
+          "ENABLE_XOJIT_PREVIEWS" : "YES"
+        }
+      }
+    }
+  },
+  "schemeCommand" : "launch",
+  "showNonLoggedProgress" : true,
+  "useDryRun" : false,
+  "useImplicitDependencies" : true,
+  "useLegacyBuildLocations" : false,
+  "useParallelTargets" : true
+}

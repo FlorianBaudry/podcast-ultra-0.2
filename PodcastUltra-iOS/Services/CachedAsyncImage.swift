@@ -81,7 +81,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         }
         .onAppear { loadIfNeeded() }
         .onDisappear { task?.cancel(); task = nil }
-        .onChange(of: url) { newURL in
+        .onChange(of: url) { _, newURL in
             if let newURL, let mem = DecodedImageMemoryCache.shared.image(for: newURL) {
                 uiImage = mem
                 loadedURL = newURL

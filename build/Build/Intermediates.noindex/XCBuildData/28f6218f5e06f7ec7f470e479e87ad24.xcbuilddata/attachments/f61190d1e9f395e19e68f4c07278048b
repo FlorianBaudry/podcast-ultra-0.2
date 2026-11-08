@@ -1,0 +1,19 @@
+{
+  "" : {
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget-primary.dia",
+    "emit-module-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget-primary-emit-module.dia",
+    "pch" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget-primary.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltraWidget/PodcastUltraWidget.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget.dia",
+    "index-unit-output-path" : "/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget.o",
+    "llvm-bc" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget.bc",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget.swiftdeps",
+    "swiftmodule" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltraWidget.build/Objects-normal/arm64/PodcastUltraWidget~partial.swiftmodule"
+  }
+}

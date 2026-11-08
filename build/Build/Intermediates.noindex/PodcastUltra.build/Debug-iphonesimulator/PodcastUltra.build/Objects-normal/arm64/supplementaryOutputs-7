@@ -1,0 +1,30 @@
+{
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Models/UnifiedSearchResults.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/UnifiedSearchResults.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/UnifiedSearchResults.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/UnifiedSearchResults.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/UnifiedSearchResults.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/UnifiedSearchResults.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Services/Translations.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/Translations.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/Translations.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/Translations.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/Translations.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/Translations.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Views/SearchView.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SearchView.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SearchView.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SearchView.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SearchView.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SearchView.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Views/SettingsView.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SettingsView.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SettingsView.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SettingsView.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SettingsView.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/SettingsView.swiftdeps"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Services/DateFormatterUtility.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DateFormatterUtility.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DateFormatterUtility.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DateFormatterUtility.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DateFormatterUtility.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DateFormatterUtility.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Services/DownloadManager.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DownloadManager.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DownloadManager.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DownloadManager.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DownloadManager.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DownloadManager.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Views/ContentView.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/ContentView.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/ContentView.swiftdeps"
+  },
+  "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/PodcastUltra-iOS/Views/DiscoverView.swift" : {
+    "const-values" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DiscoverView.swiftconstvalues",
+    "dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DiscoverView.d",
+    "diagnostics" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DiscoverView.dia",
+    "object" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DiscoverView.o",
+    "swift-dependencies" : "/Users/florianbaudry/Library/Mobile Documents/com~apple~CloudDocs/PODCAST/podcast-ultra-0.2-main TOP/build/Build/Intermediates.noindex/PodcastUltra.build/Debug-iphonesimulator/PodcastUltra.build/Objects-normal/arm64/DiscoverView.swiftdeps"
+  }
+}

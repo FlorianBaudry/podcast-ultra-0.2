@@ -332,15 +332,28 @@ struct WidgetRefreshButton: View {
     }
 }
 
+extension View {
+    func widgetContainerBackground<Background: View>(@ViewBuilder _ background: () -> Background) -> some View {
+        self.containerBackground(for: .widget, content: background)
+    }
+}
+
+extension WidgetConfiguration {
+    func disableContentMarginsIfNeeded() -> some WidgetConfiguration {
+        if #available(iOSApplicationExtension 17.0, iOS 17.0, *) {
+            return self.contentMarginsDisabled()
+        } else {
+            return self
+        }
+    }
+}
+
 struct PodcastUltraWidgetEntryView: View {
     var entry: Provider.Entry
     @Environment(\.widgetFamily) var family
 
     var body: some View {
-        ZStack {
-            Color(red: 2/255, green: 6/255, blue: 23/255)
-                .ignoresSafeArea()
-            
+        Group {
             switch family {
             case .systemSmall:
                 SmallEpisodesWidgetView(entry: entry)
@@ -349,6 +362,10 @@ struct PodcastUltraWidgetEntryView: View {
             default:
                 MediumEpisodesWidgetView(entry: entry)
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .widgetContainerBackground {
+            Color(red: 2/255, green: 6/255, blue: 23/255)
         }
     }
 }
@@ -597,5 +614,6 @@ struct PodcastUltraWidget: Widget {
         .configurationDisplayName("Podcast Ultra • 5 Derniers Épisodes")
         .description("Affiche les 5 derniers épisodes tels qu'ils apparaissent dans votre onglet Épisodes avec bouton Actualiser.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .disableContentMarginsIfNeeded()
     }
 }

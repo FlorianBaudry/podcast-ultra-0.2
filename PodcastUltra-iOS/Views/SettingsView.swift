@@ -45,8 +45,10 @@ struct SettingsView: View {
     @State private var backupAlertMessage = ""
     @State private var showingBackupAlert = false
     @State private var showingWatchCompanion = false
+    @State private var isWatchSectionExpanded = false
     @State private var isHelpSectionExpanded = false
     @State private var expandedHelpTopicId: String? = nil
+    @State private var isKnowledgeWeatherExpanded = true
     
     private let speeds = [0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0, 2.5]
     private let accentColors = ["indigo", "blue", "emerald", "rose", "violet", "amber"]
@@ -295,43 +297,7 @@ struct SettingsView: View {
                     .cornerRadius(18)
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
                     
-                    // 7. iWatch Companion & Sync
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label("Apple Watch • iWatch", systemImage: "applewatch")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.secondary)
-                        
-                        Text(
-                            storage.currentLanguage == .fr
-                            ? "Ouvrez la déclinaison iWatch intégrée ou synchronisez vos derniers épisodes et radios favorites avec votre Apple Watch."
-                            : "Open the built-in iWatch companion or sync your latest episodes and favorite radios with your Apple Watch."
-                        )
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        
-                        Button(action: {
-                            HapticManager.shared.trigger(.light)
-                            showingWatchCompanion = true
-                        }) {
-                            HStack {
-                                Image(systemName: "applewatch.watchface")
-                                Text(storage.currentLanguage == .fr ? "Ouvrir l'interface iWatch" : "Open iWatch Interface")
-                            }
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(storage.accentColorColor())
-                            .cornerRadius(12)
-                        }
-                    }
-                    .padding()
-                    .background(storage.cardBackgroundColor)
-                    .cornerRadius(18)
-                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
-                    
-                    // 8. Backup & Restore (Export / Import)
+                    // 7. Backup & Restore (Export / Import)
                     VStack(alignment: .leading, spacing: 12) {
                         Label(
                             storage.currentLanguage == .fr ? "Sauvegarde & Restauration" : "Backup & Restore",
@@ -389,6 +355,100 @@ struct SettingsView: View {
                         }
                     }
                     .padding()
+                    .background(storage.cardBackgroundColor)
+                    .cornerRadius(18)
+                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
+                    
+                    // 8. 5 Dernières Informations de Connaissance & Météo sur 1 Semaine
+                    KnowledgeAndWeeklyWeatherSettingsSection(isExpanded: $isKnowledgeWeatherExpanded)
+                    
+                    // 9. Discrete Collapsible Apple Watch (iWatch) Configuration & Companion
+                    VStack(alignment: .leading, spacing: 10) {
+                        Button(action: {
+                            HapticManager.shared.trigger(.light)
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                isWatchSectionExpanded.toggle()
+                            }
+                        }) {
+                            HStack(spacing: 10) {
+                                ZStack {
+                                    Circle()
+                                        .fill(storage.accentColorColor().opacity(0.15))
+                                        .frame(width: 32, height: 32)
+                                    Image(systemName: "applewatch")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(storage.accentColorColor())
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Apple Watch • iWatch")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(storage.primaryTextColor)
+                                    Text(storage.currentLanguage == .fr ? "Configuration & synchronisation montre (touchez pour afficher)" : "Watch configuration & sync (tap to expand)")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: isWatchSectionExpanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(storage.accentColorColor())
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        if isWatchSectionExpanded {
+                            Divider()
+                                .background(storage.cardBorderColor)
+                                .padding(.vertical, 2)
+                            
+                            Text(
+                                storage.currentLanguage == .fr
+                                ? "Synchronisez vos derniers épisodes et radios favorites avec l'application Apple Watch ou ouvrez le simulateur de configuration iWatch."
+                                : "Sync your latest episodes and favorite radios with the Apple Watch app or open the iWatch configuration interface."
+                            )
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            
+                            HStack(spacing: 10) {
+                                Button(action: {
+                                    HapticManager.shared.trigger(.light)
+                                    WatchSessionManager.shared.syncContextToWatch()
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "arrow.triangle.2.circlepath")
+                                        Text(storage.currentLanguage == .fr ? "Synchroniser" : "Sync Watch")
+                                    }
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(storage.primaryTextColor)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(storage.subtleSurfaceColor)
+                                    .cornerRadius(10)
+                                }
+                                
+                                Button(action: {
+                                    HapticManager.shared.trigger(.light)
+                                    showingWatchCompanion = true
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "applewatch.watchface")
+                                        Text(storage.currentLanguage == .fr ? "Configurer / Aperçu" : "Configure / Preview")
+                                    }
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(storage.accentColorColor())
+                                    .cornerRadius(10)
+                                }
+                            }
+                        }
+                    }
+                    .padding(14)
                     .background(storage.cardBackgroundColor)
                     .cornerRadius(18)
                     .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
@@ -900,6 +960,219 @@ struct AppGuideTopic: Identifiable {
     let details: [String]
 }
 
+// MARK: - 5 Latest Knowledge Facts & 7-Day Weather Forecast Section in Settings
+struct KnowledgeAndWeeklyWeatherSettingsSection: View {
+    @Binding var isExpanded: Bool
+    @ObservedObject var storage = LocalStorageManager.shared
+    @ObservedObject var weatherService = WeatherService.shared
+    @ObservedObject var factsService = KnowledgeFactsService.shared
+    
+    private static let inputDateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "yyyy-MM-dd"
+        return df
+    }()
+    
+    private static var dayFormatters: [String: DateFormatter] = [:]
+    
+    private static func dayFormatter(for langCode: String) -> DateFormatter {
+        if let existing = dayFormatters[langCode] {
+            return existing
+        }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: langCode)
+        df.dateFormat = "EEE d"
+        dayFormatters[langCode] = df
+        return df
+    }
+    
+    private func formattedDayLabel(_ dateStr: String, index: Int) -> String {
+        let isFr = storage.currentLanguage == .fr
+        if index == 0 {
+            return isFr ? "Auj." : "Today"
+        }
+        guard let date = Self.inputDateFormatter.date(from: dateStr) else {
+            return dateStr
+        }
+        let df = Self.dayFormatter(for: storage.currentLanguage.rawValue)
+        return df.string(from: date).capitalized
+    }
+    
+    var body: some View {
+        let isFr = storage.currentLanguage == .fr
+        let recentFacts = factsService.recentFacts
+        
+        VStack(alignment: .leading, spacing: 12) {
+            Button(action: {
+                HapticManager.shared.trigger(.light)
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(storage.accentColorColor().opacity(0.15))
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(storage.accentColorColor())
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isFr ? "Savoirs Récents & Météo (7 jours)" : "Recent Knowledge & 7-Day Weather")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(storage.primaryTextColor)
+                        Text(isFr ? "Les 5 dernières clés affichées & prévisions de la semaine" : "Last 5 displayed facts & weekly weather forecast")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: isExpanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(storage.accentColorColor())
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            if isExpanded {
+                Divider()
+                    .background(storage.cardBorderColor)
+                    .padding(.vertical, 2)
+                
+                // 1. 7-Day Weather Forecast Card
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Label(
+                            isFr ? "Météo sur 1 semaine • \(weatherService.cityName)" : "7-Day Weather • \(weatherService.cityName)",
+                            systemImage: weatherService.weatherIcon
+                        )
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundColor(storage.accentColorColor())
+                        
+                        Spacer()
+                        
+                        if let currentTemp = weatherService.temperature {
+                            Text("\(Int(round(currentTemp)))°C • \(weatherService.weatherDescription)")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(storage.primaryTextColor)
+                        }
+                    }
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(Array(weatherService.weeklyForecast.prefix(7).enumerated()), id: \.element.id) { index, day in
+                                VStack(spacing: 6) {
+                                    Text(formattedDayLabel(day.dateString, index: index))
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(index == 0 ? storage.accentColorColor() : .secondary)
+                                        .lineLimit(1)
+                                    
+                                    Image(systemName: day.icon)
+                                        .font(.system(size: 18))
+                                        .foregroundColor(storage.accentColorColor())
+                                        .frame(height: 22)
+                                    
+                                    VStack(spacing: 1) {
+                                        Text("\(Int(round(day.tempMax)))°")
+                                            .font(.system(size: 12, weight: .black))
+                                            .foregroundColor(storage.primaryTextColor)
+                                        Text("\(Int(round(day.tempMin)))°")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .frame(width: 58)
+                                .padding(.vertical, 10)
+                                .background(index == 0 ? storage.accentColorColor().opacity(0.12) : storage.subtleSurfaceColor)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(index == 0 ? storage.accentColorColor().opacity(0.4) : storage.cardBorderColor, lineWidth: 1)
+                                )
+                            }
+                        }
+                    }
+                }
+                .padding(12)
+                .background(storage.subtleSurfaceColor.opacity(0.6))
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(storage.cardBorderColor, lineWidth: 1))
+                
+                // 2. Last 5 Displayed Knowledge Facts
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Label(
+                            isFr ? "5 dernières informations de connaissance" : "Last 5 displayed knowledge facts",
+                            systemImage: "brain.head.profile"
+                        )
+                        .font(.system(size: 11, weight: .black))
+                        .foregroundColor(storage.accentColorColor())
+                        
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                    
+                    ForEach(Array(recentFacts.prefix(5).enumerated()), id: \.element.id) { idx, fact in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(spacing: 6) {
+                                Text("#\(idx + 1)")
+                                    .font(.system(size: 9, weight: .black))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(storage.accentColorColor())
+                                    .cornerRadius(6)
+                                
+                                Image(systemName: fact.icon)
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(storage.accentColorColor())
+                                
+                                Text(fact.category.uppercased())
+                                    .font(.system(size: 9, weight: .black))
+                                    .foregroundColor(storage.accentColorColor())
+                                
+                                Spacer()
+                            }
+                            
+                            Text(fact.title(for: storage.currentLanguage))
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(storage.primaryTextColor)
+                                .fixedSize(horizontal: false, vertical: true)
+                            
+                            Text(fact.text(for: storage.currentLanguage))
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .lineSpacing(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(storage.subtleSurfaceColor)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(storage.cardBorderColor, lineWidth: 1)
+                        )
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(storage.cardBackgroundColor)
+        .cornerRadius(18)
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(storage.cardBorderColor, lineWidth: 1))
+        .onAppear {
+            weatherService.requestLocation()
+        }
+    }
+}
+
 struct AppGuideSettingsSection: View {
     @Binding var isSectionExpanded: Bool
     @Binding var expandedTopicId: String?
@@ -912,34 +1185,34 @@ struct AppGuideSettingsSection: View {
                 id: "tabs",
                 icon: "square.grid.2x2.fill",
                 title: isFr ? "Les 4 Onglets de l'application" : "The 4 App Tabs",
-                subtitle: isFr ? "Épisodes, Podcasts, Livres & Radio" : "Episodes, Podcasts, Books & Radio",
+                subtitle: isFr ? "Épisodes, Podcasts, Apprendre & Radio" : "Episodes, Podcasts, Learn & Radio",
                 details: isFr ? [
-                    "• Épisodes (1er onglet) : S'ouvre par défaut et s'actualise automatiquement à chaque ouverture de l'app. Affiche les épisodes des 7 derniers jours de vos podcasts favoris. Glissez à droite pour ajouter à la file d'attente, à gauche pour masquer, ou maintenez appuyé pour ouvrir le podcast.",
+                    "• Épisodes (1er onglet) : S'ouvre par défaut et affiche les épisodes des 7 derniers jours de vos podcasts favoris (actualisation optimisée toutes les 30 minutes max). Glissez à droite pour ajouter à la file d'attente, à gauche pour masquer, ou maintenez appuyé pour ouvrir le podcast.",
                     "• Podcasts : Retrouvez vos podcasts favoris triés par l'épisode le plus récent en premier, ainsi que les classements tendances par catégorie.",
-                    "• Livres : Catalogue de livres audio complets (> 30 min) avec leur durée totale affichée. Le bouton cœur permet de mettre un livre en favori uniquement dans l'onglet Livres.",
-                    "• Radio : Écoutez vos stations en direct avec icônes dédiées, recherche rapide et favoris propres à l'onglet Radio."
+                    "• Apprendre : Regroupe 3 sous-sections dédiées (Culture avec les grands médias Arte, INA, Collège de France..., Livres et Enfants) avec filtres courts, favoris par section, placement automatique à gauche des favoris en cours d'écoute et bouton « Reprendre ».",
+                    "• Radio : Écoutez vos stations en direct sur des flux directs sans pub pré-roll avec icônes dédiées, recherche rapide et favoris propres à l'onglet Radio."
                 ] : [
-                    "• Episodes (1st tab): Opens by default and refreshes automatically every time you open the app. Swipe right to queue, left to hide, or long-press to open the show.",
+                    "• Episodes (1st tab): Opens by default and shows the last 7 days of episodes from your favorite podcasts (throttled to 30m auto-refresh). Swipe right to queue, left to hide, or long-press to open the show.",
                     "• Podcasts: Your favorite shows ordered by most recent episode first, plus top trending charts by genre.",
-                    "• Books: Full audiobooks (> 30 min) with total duration displayed and dedicated Book favorites.",
-                    "• Radio: Live radio stations with custom/resolved icons, instant search, and dedicated Radio favorites."
+                    "• Learn: Features 3 sub-sections (Culture with major media proposals, Books, Kids) with short category filters, section favorites, in-progress items placed on the left, and 'Resume' right where you left off.",
+                    "• Radio: Direct ad-free live radio streams with custom/resolved icons, instant search, and dedicated Radio favorites."
                 ]
             ),
             AppGuideTopic(
                 id: "player",
                 icon: "play.circle.fill",
-                title: isFr ? "Lecteur, Chromecast & Fonctions" : "Player, Chromecast & Features",
-                subtitle: isFr ? "Diffusion TV/Enceintes, Recherche & Hors-ligne" : "Casting, Search & Offline Downloads",
+                title: isFr ? "Lecteur, Diffuser & Infos (i)" : "Player, Cast & Info (i)",
+                subtitle: isFr ? "AirPlay/Chromecast unifié, Fiche détaillée & Hors-ligne" : "Unified AirPlay/Chromecast, Item Info & Offline",
                 details: isFr ? [
-                    "• Lecteur & File d'attente : Vitesse ajustable (0.5x à 2.5x), saut automatique des intros (30s), reprise automatique de la position et enchaînement fluide en arrière-plan.",
-                    "• Chromecast & AirPlay : Touchez l'icône Cast en haut du lecteur pour découvrir automatiquement vos appareils Google Cast sur le réseau local (ou saisir une IP) et diffuser l'audio.",
-                    "• Recherche globale : Touchez la barre du haut pour faire descendre le panneau de recherche avec ouverture immédiate du clavier.",
-                    "• Mode Hors-ligne : Le bouton « Charger » dans l'onglet Épisodes télécharge automatiquement les 10 derniers épisodes pour une écoute sans connexion."
+                    "• Lecteur & Nom cliquable : Vitesse ajustable (0.5x à 2.5x), saut automatique des intros (30s) et reprise automatique. Touchez le nom du podcast ou livre sous le titre pour ouvrir directement tous ses épisodes.",
+                    "• Bouton (i) : Affiche toutes les informations récupérées sur le média en cours de lecture (description complète, auteur, date, durée, genre, source et flux).",
+                    "• Bouton « Diffuser » unifié : Regroupe Apple AirPlay (HomePod, Apple TV, AirPods) et Google Cast / Chromecast dans un seul panneau.",
+                    "• Mode Hors-ligne : Le bouton « Charger » dans l'onglet Épisodes télécharge automatiquement les 10 derniers épisodes."
                 ] : [
-                    "• Player & Queue: Adjustable speed (0.5x to 2.5x), automatic 30s intro skip, position memory, and reliable background playback.",
-                    "• Chromecast & AirPlay: Tap the Cast button in the player header to discover Google Cast devices on your local network or connect by IP.",
-                    "• Global Search: Tap the top bar to slide down the search panel with immediate keyboard focus.",
-                    "• Offline Mode: The 'Download' button in Episodes automatically caches the 10 latest episodes for offline listening."
+                    "• Player & Clickable Show Name: Adjustable speed (0.5x to 2.5x), automatic 30s intro skip, and position memory. Tap the podcast or book name below the title to open all its episodes.",
+                    "• Info (i) Button: Displays all metadata retrieved for the currently playing item (full description, author, release date, duration, genre, source, and stream URL).",
+                    "• Unified 'Cast' Button: Combines Apple AirPlay and Google Cast / Chromecast in a single control.",
+                    "• Offline Mode: The 'Download' button in Episodes caches the 10 latest episodes for offline listening."
                 ]
             ),
             AppGuideTopic(

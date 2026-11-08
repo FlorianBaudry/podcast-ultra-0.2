@@ -1,0 +1,6 @@
+Target dependency graph (3 targets)
+Target 'PodcastUltra' in project 'PodcastUltra'
+➜ Explicit dependency on target 'PodcastUltraWidget' in project 'PodcastUltra'
+➜ Explicit dependency on target 'PodcastUltraWatch' in project 'PodcastUltra'
+Target 'PodcastUltraWatch' in project 'PodcastUltra' (no dependencies)
+Target 'PodcastUltraWidget' in project 'PodcastUltra' (no dependencies)

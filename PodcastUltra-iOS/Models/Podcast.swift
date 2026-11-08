@@ -13,9 +13,10 @@ struct Podcast: Identifiable, Codable {
     let releaseDate: String?
     let country: String?
     let description: String?
-    let source: String?
+    var source: String?
     var totalDurationMillis: Int? = nil
     var episodeCount: Int? = nil
+    var trackCount: Int? = nil
     
     var formattedTotalDuration: String? {
         guard let millis = totalDurationMillis, millis > 0 else { return nil }

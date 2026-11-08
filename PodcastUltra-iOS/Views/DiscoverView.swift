@@ -5,6 +5,8 @@ struct DiscoverView: View {
     @ObservedObject var storage = LocalStorageManager.shared
     
     @State private var trendingPodcasts: [Podcast] = LocalStorageManager.shared.cachedTrendingPodcasts
+    @State private var sortedFavorites: [Podcast] = []
+    @State private var sortedRecommended: [Podcast] = []
     @State private var isLoading = LocalStorageManager.shared.cachedTrendingPodcasts.isEmpty
     @State private var isRefreshingDates = false
     @State private var activeCategory = LocalStorageManager.shared.lastTrendingCategory ?? "All"
@@ -14,66 +16,42 @@ struct DiscoverView: View {
     ]
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Category Picker Header
-                HStack {
-                    // Manual Refresh Button (refreshes both Trending and Favorite Episode Dates)
-                    Button(action: {
-                        HapticManager.shared.trigger(.light)
-                        fetchTrending(force: true)
-                    }) {
-                        ZStack {
-                            if isRefreshingDates {
-                                ProgressView()
-                                    .scaleEffect(0.75)
-                                    .tint(storage.accentColorColor())
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(storage.accentColorColor())
-                            }
-                        }
-                        .frame(width: 36, height: 36)
-                        .background(storage.subtleSurfaceColor)
-                        .clipShape(Circle())
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .disabled(isRefreshingDates)
-                    
-                    Spacer()
-                    
-                    Menu {
-                        ForEach(Translations.shared.getCategoriesList(storage.currentLanguage), id: \.key) { cat in
-                            Button(action: {
-                                HapticManager.shared.trigger(.light)
-                                activeCategory = cat.key
-                                fetchTrending(force: true)
-                            }) {
-                                HStack {
-                                    Text(cat.value)
-                                    if activeCategory == cat.key {
-                                        Image(systemName: "checkmark")
+        ZStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Inline Category Pills (matching Culture section style)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Translations.shared.getCategoriesList(storage.currentLanguage), id: \.key) { cat in
+                                let isSelected = activeCategory == cat.key
+                                Button(action: {
+                                    HapticManager.shared.trigger(.light)
+                                    activeCategory = cat.key
+                                    recomputeLists()
+                                    fetchTrending(force: true)
+                                }) {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: iconForCategory(cat.key))
+                                            .font(.system(size: 10, weight: .bold))
+                                        Text(cat.value)
+                                            .font(.caption)
+                                            .fontWeight(.bold)
                                     }
+                                    .padding(.vertical, 7)
+                                    .padding(.horizontal, 12)
+                                    .background(isSelected ? storage.accentColorColor().opacity(0.9) : storage.subtleSurfaceColor)
+                                    .foregroundColor(isSelected ? .white : storage.primaryTextColor)
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(isSelected ? Color.white.opacity(0.2) : storage.cardBorderColor, lineWidth: 1)
+                                    )
                                 }
+                                .buttonStyle(PlainButtonStyle())
                             }
                         }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(Translations.shared.category(activeCategory, storage.currentLanguage))
-                                .font(.caption)
-                                .fontWeight(.bold)
-                            Image(systemName: "chevron.down")
-                                .font(.caption2)
-                        }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 14)
-                        .background(storage.subtleSurfaceColor)
-                        .cornerRadius(12)
-                        .foregroundColor(storage.accentColorColor())
+                        .padding(.horizontal)
                     }
-                }
-                .padding(.horizontal)
                 
                 if isLoading {
                     VStack {
@@ -84,8 +62,7 @@ struct DiscoverView: View {
                     .frame(maxWidth: .infinity)
                 } else {
                     // Favorites Section (Ordered by most recent episode first)
-                    let favs = getFilteredFavorites()
-                    if !favs.isEmpty {
+                    if !sortedFavorites.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack(spacing: 8) {
                                 Image(systemName: "heart.fill")
@@ -99,7 +76,7 @@ struct DiscoverView: View {
                             
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 16) {
-                                    ForEach(favs) { podcast in
+                                    ForEach(sortedFavorites) { podcast in
                                         NavigationLink(destination: EpisodeListView(podcast: podcast)) {
                                             DiscoverPodcastCard(
                                                 podcast: podcast,
@@ -124,16 +101,8 @@ struct DiscoverView: View {
                     
                     // Recommended Section
                     VStack(alignment: .leading, spacing: 16) {
-                        let recommended = trendingPodcasts
-                            .filter { !storage.isFavoritePodcast($0.collectionId) && !LocalStorageManager.isAudiobookItem($0) }
-                            .sorted { a, b in
-                                let dateA = DateFormatterUtility.parse(storage.effectiveReleaseDateString(for: a)) ?? Date(timeIntervalSince1970: 0)
-                                let dateB = DateFormatterUtility.parse(storage.effectiveReleaseDateString(for: b)) ?? Date(timeIntervalSince1970: 0)
-                                return dateA > dateB
-                            }
-                        
                         LazyVGrid(columns: columns, spacing: 20) {
-                            ForEach(recommended) { podcast in
+                            ForEach(sortedRecommended) { podcast in
                                 NavigationLink(destination: EpisodeListView(podcast: podcast)) {
                                     DiscoverPodcastCard(
                                         podcast: podcast,
@@ -151,48 +120,86 @@ struct DiscoverView: View {
             }
             .ipadMaxWidth()
             .padding(.bottom, 100)
+            }
+            .refreshable {
+                await fetchTrendingAsync(force: true)
+            }
+            
+            // Full-screen knowledge & productivity loading overlay during pull-to-refresh
+            if isRefreshingDates {
+                RefreshLoadingOverlay()
+                    .zIndex(100)
+            }
         }
         .onAppear {
             self.trendingPodcasts = storage.cachedTrendingPodcasts
-            if !storage.cachedEpisodes.isEmpty {
-                storage.updateLatestEpisodeDates(from: storage.cachedEpisodes)
-            }
+            recomputeLists()
             if trendingPodcasts.isEmpty {
-                fetchTrending()
-            } else if storage.podcastLatestEpisodeDates.isEmpty && !storage.favoritePodcasts.isEmpty {
-                Task { await refreshFavoriteEpisodeDates() }
+                fetchTrending(force: false)
             }
         }
-        .onChange(of: storage.currentLanguage) { _ in
+        .onChange(of: storage.favoritePodcasts.count) { _, _ in
+            recomputeLists()
+        }
+        .onChange(of: storage.currentLanguage) { _, _ in
+            self.trendingPodcasts = []
+            recomputeLists()
             fetchTrending(force: true)
         }
     }
     
+    private func recomputeLists() {
+        self.sortedFavorites = getFilteredFavorites()
+        let favIds = Set(storage.favoritePodcasts.map { $0.collectionId })
+        let rawCandidates = trendingPodcasts.filter { !favIds.contains($0.collectionId) && !LocalStorageManager.isAudiobookItem($0) }
+        let candidates = LanguageContentFilter.shared.filterPodcasts(rawCandidates, for: storage.currentLanguage)
+        var parsedDates: [Int: Date] = [:]
+        parsedDates.reserveCapacity(candidates.count)
+        for p in candidates {
+            if let d = DateFormatterUtility.parse(storage.effectiveReleaseDateString(for: p)) {
+                parsedDates[p.collectionId] = d
+            }
+        }
+        self.sortedRecommended = candidates.sorted { a, b in
+            let dateA = parsedDates[a.collectionId] ?? Date(timeIntervalSince1970: 0)
+            let dateB = parsedDates[b.collectionId] ?? Date(timeIntervalSince1970: 0)
+            return dateA > dateB
+        }
+    }
+    
     private func fetchTrending(force: Bool = false) {
+        Task {
+            await fetchTrendingAsync(force: force)
+        }
+    }
+    
+    private func fetchTrendingAsync(force: Bool = false) async {
         let categoryChanged = storage.lastTrendingCategory != activeCategory
-        if !force && !categoryChanged && !trendingPodcasts.isEmpty {
+        if !force && !categoryChanged && !trendingPodcasts.isEmpty && !storage.shouldRefresh(lastFetch: storage.lastTrendingFetchDate, minInterval: 30 * 60) {
             return
         }
         
-        if trendingPodcasts.isEmpty {
-            isLoading = true
+        await MainActor.run {
+            if trendingPodcasts.isEmpty {
+                isLoading = true
+            }
+            isRefreshingDates = true
         }
-        isRefreshingDates = true
         
-        Task {
-            // 1. Refresh Favorite Podcasts' actual latest episode dates so badges & sorting are 100% accurate
-            await refreshFavoriteEpisodeDates()
-            
-            // 2. Refresh Trending Podcasts
-            do {
-                let results = try await APIService.shared.getTrendingPodcasts(
-                    country: storage.currentLanguage.itunes,
-                    category: activeCategory
-                )
+        // 1. Refresh Favorite Podcasts' actual latest episode dates so badges & sorting are 100% accurate
+        await refreshFavoriteEpisodeDates()
+        
+        // 2. Refresh Trending Podcasts
+        do {
+            let results = try await APIService.shared.getTrendingPodcasts(
+                country: storage.currentLanguage.itunes,
+                category: activeCategory
+            )
+            let cleanResults = ProfanityFilter.shared.filterCleanPodcasts(results)
                 
-                // Verify any trending podcast that claims "Today" so podcasts without a real episode today don't show a false "Aujourd'hui"
-                var verifiedTrending = results
-                let todayCandidates = results.filter { p in
+            // Verify any trending podcast that claims "Today" so podcasts without a real episode today don't show a false "Aujourd'hui"
+            var verifiedTrending = cleanResults
+            let todayCandidates = cleanResults.filter { p in
                     guard let d = DateFormatterUtility.parse(p.releaseDate) else { return false }
                     return Calendar.current.isDateInToday(d)
                 }
@@ -255,6 +262,7 @@ struct DiscoverView: View {
                     storage.cachedTrendingPodcasts = verifiedTrending
                     storage.lastTrendingFetchDate = Date()
                     storage.lastTrendingCategory = activeCategory
+                    self.recomputeLists()
                     self.isLoading = false
                     self.isRefreshingDates = false
                 }
@@ -265,51 +273,28 @@ struct DiscoverView: View {
                 }
             }
         }
-    }
     
     private func refreshFavoriteEpisodeDates() async {
-        let favs = storage.favoritePodcasts
+        let favs = storage.favoritePodcasts.filter { !LocalStorageManager.isAudiobookItem($0) }
         guard !favs.isEmpty else { return }
-        let country = storage.currentLanguage.itunes
         
-        let fetched = await withTaskGroup(of: [Episode].self) { group -> [Episode] in
-            for p in favs {
-                group.addTask {
-                    (try? await APIService.shared.getPodcastEpisodes(
-                        collectionId: p.collectionId,
-                        preferredCountry: country,
-                        feedUrl: p.feedUrl
-                    )) ?? []
-                }
-            }
-            var all: [Episode] = []
-            for await eps in group {
-                all.append(contentsOf: eps)
-            }
-            return all
-        }
+        let fetched = (try? await APIService.shared.fetchEpisodesForPodcasts(favs, forceRefresh: true)) ?? []
+        let processed = LocalStorageManager.processRecentFavoriteEpisodes(fetched, from: favs)
         
         await MainActor.run {
-            storage.updateLatestEpisodeDates(from: fetched)
-            
-            // Also keep cachedEpisodes in sync so EpisodesView and Podcasts badges match 100%
-            let sorted = fetched.sorted { a, b in
-                let dA = DateFormatterUtility.parse(a.releaseDate) ?? .distantPast
-                let dB = DateFormatterUtility.parse(b.releaseDate) ?? .distantPast
-                return dA > dB
+            storage.updateLatestEpisodeDates(from: processed.allSorted)
+            var feed = processed.recentFeed
+            if storage.settings.longestPerDayOnly {
+                feed = storage.applyLongestPerDayFilter(feed)
             }
-            let oneWeekAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date().addingTimeInterval(-7 * 24 * 3600)
-            let withinOneWeek = sorted.filter { ep in
-                guard let d = DateFormatterUtility.parse(ep.releaseDate) else { return false }
-                return d >= oneWeekAgo
-            }
-            storage.cachedEpisodes = withinOneWeek
+            storage.cachedEpisodes = feed
             storage.lastEpisodesFetchDate = Date()
+            self.recomputeLists()
         }
     }
     
     private func getFilteredFavorites() -> [Podcast] {
-        return storage.favoritePodcasts.filter { p in
+        let filtered = storage.favoritePodcasts.filter { p in
             // 1. Never show audiobooks in Podcasts favorites
             if LocalStorageManager.isAudiobookItem(p) { return false }
             
@@ -324,13 +309,39 @@ struct DiscoverView: View {
             } else {
                 return !isTrueCrime
             }
-        }.sorted { a, b in
-            let dateA = DateFormatterUtility.parse(storage.effectiveReleaseDateString(for: a)) ?? Date(timeIntervalSince1970: 0)
-            let dateB = DateFormatterUtility.parse(storage.effectiveReleaseDateString(for: b)) ?? Date(timeIntervalSince1970: 0)
+        }
+        var parsedDates: [Int: Date] = [:]
+        for p in filtered {
+            if let d = DateFormatterUtility.parse(storage.effectiveReleaseDateString(for: p)) {
+                parsedDates[p.collectionId] = d
+            }
+        }
+        return filtered.sorted { a, b in
+            let dateA = parsedDates[a.collectionId] ?? Date(timeIntervalSince1970: 0)
+            let dateB = parsedDates[b.collectionId] ?? Date(timeIntervalSince1970: 0)
             if dateA != dateB {
                 return dateA > dateB
             }
             return a.collectionName.localizedCaseInsensitiveCompare(b.collectionName) == .orderedAscending
+        }
+    }
+    
+    private func iconForCategory(_ key: String) -> String {
+        switch key {
+        case "All": return "sparkles"
+        case "News": return "newspaper.fill"
+        case "Comedy": return "face.smiling.fill"
+        case "Technology": return "cpu.fill"
+        case "Business": return "briefcase.fill"
+        case "Society & Culture": return "globe.europe.africa.fill"
+        case "True Crime": return "magnifyingglass"
+        case "Health": return "heart.text.square.fill"
+        case "Education": return "graduationcap.fill"
+        case "History": return "building.columns.fill"
+        case "Music": return "music.note"
+        case "Science": return "atom"
+        case "Sports": return "sportscourt.fill"
+        default: return "mic.fill"
         }
     }
 }
@@ -341,6 +352,31 @@ struct DiscoverPodcastCard: View {
     let isFav: Bool
     let lang: LangCode
     @ObservedObject var storage = LocalStorageManager.shared
+    
+    private static var weekdayFormatters: [String: DateFormatter] = [:]
+    private static var shortDateFormatters: [String: DateFormatter] = [:]
+    
+    private static func weekdayFormatter(for langCode: String) -> DateFormatter {
+        if let existing = weekdayFormatters[langCode] {
+            return existing
+        }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: langCode)
+        df.dateFormat = "EEEE"
+        weekdayFormatters[langCode] = df
+        return df
+    }
+    
+    private static func shortDateFormatter(for langCode: String) -> DateFormatter {
+        if let existing = shortDateFormatters[langCode] {
+            return existing
+        }
+        let df = DateFormatter()
+        df.locale = Locale(identifier: langCode)
+        df.dateFormat = "d MMM"
+        shortDateFormatters[langCode] = df
+        return df
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -454,14 +490,10 @@ struct DiscoverPodcastCard: View {
             let startOfTarget = calendar.startOfDay(for: date)
             let diff = calendar.dateComponents([.day], from: startOfTarget, to: startOfToday).day ?? 7
             if diff > 0 && diff < 7 {
-                let df = DateFormatter()
-                df.locale = Locale(identifier: lang.rawValue)
-                df.dateFormat = "EEEE"
+                let df = Self.weekdayFormatter(for: lang.rawValue)
                 return (df.string(from: date).capitalized, .emeraldCustom, false)
             } else {
-                let df = DateFormatter()
-                df.locale = Locale(identifier: lang.rawValue)
-                df.dateFormat = "d MMM"
+                let df = Self.shortDateFormatter(for: lang.rawValue)
                 return (df.string(from: date), Color(red: 71/255, green: 85/255, blue: 105/255), false)
             }
         }

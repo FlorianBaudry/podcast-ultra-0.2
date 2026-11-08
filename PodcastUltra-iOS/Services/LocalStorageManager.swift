@@ -67,6 +67,101 @@ struct WidgetPodcastFeedInfo: Codable {
     let country: String?
 }
 
+enum SubscriptionSection: String, Codable, CaseIterable, Identifiable {
+    case culture = "culture"
+    case livres = "livres"
+    case enfants = "enfants"
+    
+    /// Visible sections in the Découvrir tab (Culture & Livres merged under Culture, followed by Enfants)
+    static var visibleCases: [SubscriptionSection] {
+        [.culture, .enfants]
+    }
+    
+    var id: String { rawValue }
+    
+    func title(for lang: LangCode) -> String {
+        switch self {
+        case .culture:
+            switch lang {
+            case .fr, .en: return "Culture"
+            case .es, .it, .pt: return "Cultura"
+            case .de: return "Kultur"
+            case .ja: return "カルチャー"
+            case .zh: return "文化"
+            case .ru: return "Культура"
+            case .ar: return "ثقافة"
+            case .tr: return "Kültür"
+            case .ko: return "문화"
+            default: return "Culture"
+            }
+        case .livres:
+            switch lang {
+            case .fr: return "Livres"
+            case .es: return "Libros"
+            case .de: return "Bücher"
+            case .it: return "Libri"
+            case .pt: return "Livros"
+            case .ja: return "ブック"
+            case .zh: return "书籍"
+            case .ru: return "Книги"
+            case .ar: return "كتب"
+            case .tr: return "Kitaplar"
+            case .ko: return "오디오북"
+            default: return "Books"
+            }
+        case .enfants:
+            switch lang {
+            case .fr: return "Enfants"
+            case .es: return "Niños"
+            case .de: return "Kinder"
+            case .it: return "Bambini"
+            case .pt: return "Crianças"
+            case .ja: return "キッズ"
+            case .zh: return "儿童"
+            case .ru: return "Дети"
+            case .ar: return "أطفال"
+            case .tr: return "Çocuklar"
+            case .ko: return "어린이"
+            default: return "Kids"
+            }
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .culture: return "building.columns.fill"
+        case .livres: return "book.fill"
+        case .enfants: return "teddybear.fill"
+        }
+    }
+}
+
+struct InProgressSubscriptionState: Codable {
+    let collectionId: Int
+    var episode: Episode
+    var positionSeconds: Double
+    var durationSeconds: Double
+    var updatedAt: Date
+    
+    var formattedPosition: String {
+        let totalSecs = max(0, Int(positionSeconds))
+        let hours = totalSecs / 3600
+        let mins = (totalSecs % 3600) / 60
+        let secs = totalSecs % 60
+        if hours > 0 {
+            return String(format: "%dh %02dm", hours, mins)
+        } else {
+            return String(format: "%d:%02d", mins, secs)
+        }
+    }
+    
+    var progressFraction: Double {
+        let dur = durationSeconds > 0 ? durationSeconds : Double(episode.trackTimeMillis ?? 0) / 1000.0
+        guard dur > 0 else { return 0.15 }
+        return min(0.98, max(0.04, positionSeconds / dur))
+    }
+}
+
 class LocalStorageManager: ObservableObject {
     static let shared = LocalStorageManager()
     
@@ -91,6 +186,17 @@ class LocalStorageManager: ObservableObject {
             guard isInitialized else { return }
             UserDefaults.standard.set(currentLanguage.rawValue, forKey: keys.language)
             save(currentLanguage.rawValue, forKey: keys.language)
+            if oldValue != currentLanguage {
+                // Clear all non-favorite content caches so every tab adapts immediately to the new language
+                cachedTrendingPodcasts = []
+                cachedRadioStations = []
+                cachedAudiobooks = []
+                cachedSubscriptionsBySection = [:]
+                lastSubscriptionFetchTimestamps = [:]
+                lastTrendingFetchDate = nil
+                lastTrendingCategory = nil
+                lastAudiobooksCategory = nil
+            }
         }
     }
     
@@ -107,6 +213,56 @@ class LocalStorageManager: ObservableObject {
         didSet {
             guard isInitialized else { return }
             save(favoriteAudiobooks, forKey: keys.favoriteAudiobooks)
+            if favoriteSubscriptionsBySection[SubscriptionSection.livres.rawValue]?.map({ $0.collectionId }) != favoriteAudiobooks.map({ $0.collectionId }) {
+                favoriteSubscriptionsBySection[SubscriptionSection.livres.rawValue] = favoriteAudiobooks
+            }
+        }
+    }
+    
+    @Published var favoriteSubscriptionsBySection: [String: [Podcast]] = [:] {
+        didSet {
+            guard isInitialized else { return }
+            save(favoriteSubscriptionsBySection, forKey: keys.favoriteSubscriptionsBySection)
+            let books = favoriteSubscriptionsBySection[SubscriptionSection.livres.rawValue] ?? []
+            if favoriteAudiobooks.map({ $0.collectionId }) != books.map({ $0.collectionId }) {
+                favoriteAudiobooks = books
+            }
+        }
+    }
+    
+    @Published var subscriptionSectionMap: [Int: String] = [:] {
+        didSet {
+            guard isInitialized else { return }
+            save(subscriptionSectionMap, forKey: keys.subscriptionSectionMap)
+        }
+    }
+    
+    @Published var inProgressByCollection: [Int: InProgressSubscriptionState] = [:] {
+        didSet {
+            guard isInitialized else { return }
+            save(inProgressByCollection, forKey: keys.inProgressByCollection)
+        }
+    }
+    
+    @Published var cancelledInProgressIds: [Int] = [] {
+        didSet {
+            guard isInitialized else { return }
+            save(cancelledInProgressIds, forKey: keys.cancelledInProgressIds)
+        }
+    }
+    
+    @Published var cachedSubscriptionsBySection: [String: [Podcast]] = [:] {
+        didSet {
+            guard isInitialized else { return }
+            save(cachedSubscriptionsBySection, forKey: keys.cachedSubscriptionsBySection)
+        }
+    }
+    
+    // Tracks last fetch timestamp (TimeIntervalSince1970) per section/filter key so "Apprendre" only auto-fetches once per day max
+    var lastSubscriptionFetchTimestamps: [String: Double] = [:] {
+        didSet {
+            guard isInitialized else { return }
+            save(lastSubscriptionFetchTimestamps, forKey: keys.lastSubscriptionFetchTimestamps)
         }
     }
     
@@ -225,10 +381,20 @@ class LocalStorageManager: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: keys.lastAudiobooksCategory) }
     }
     
-    /// Returns true if the last fetch is older than 24 hours or has never happened
-    func shouldRefresh(lastFetch: Date?) -> Bool {
+    /// Returns true if the last fetch is older than 30 minutes (1800s) or has never happened
+    func shouldRefresh(lastFetch: Date?, minInterval: TimeInterval = 30 * 60) -> Bool {
         guard let lastFetch = lastFetch else { return true }
-        return Date().timeIntervalSince(lastFetch) > 24 * 60 * 60
+        return Date().timeIntervalSince(lastFetch) >= minInterval
+    }
+    
+    /// Returns true only if at least 24 hours (86400s) have elapsed since this "Apprendre" section/filter was last fetched
+    func shouldAutoRefreshSubscriptions(forKey key: String) -> Bool {
+        guard let lastTs = lastSubscriptionFetchTimestamps[key] else { return true }
+        return Date().timeIntervalSince1970 - lastTs >= 24 * 60 * 60
+    }
+    
+    func markSubscriptionFetched(forKey key: String) {
+        lastSubscriptionFetchTimestamps[key] = Date().timeIntervalSince1970
     }
     
     private let keys = (
@@ -236,6 +402,12 @@ class LocalStorageManager: ObservableObject {
         language: "voxstream_lang",
         favorites: "voxstream_favs_v2",
         favoriteAudiobooks: "voxstream_fav_audiobooks",
+        favoriteSubscriptionsBySection: "voxstream_fav_subs_by_section",
+        subscriptionSectionMap: "voxstream_sub_section_map",
+        inProgressByCollection: "voxstream_in_progress_subs_v2",
+        cancelledInProgressIds: "voxstream_cancelled_in_progress",
+        cachedSubscriptionsBySection: "voxstream_cached_subs_by_section",
+        lastSubscriptionFetchTimestamps: "voxstream_last_sub_fetch_ts",
         favoriteRadios: "voxstream_fav_radios",
         favoriteRadioStations: "voxstream_fav_radio_stations",
         podcastLatestDates: "voxstream_podcast_latest_dates",
@@ -273,7 +445,7 @@ class LocalStorageManager: ObservableObject {
                   let loadedLang = LangCode(rawValue: decodedStr) {
             self.currentLanguage = loadedLang
         } else {
-            self.currentLanguage = .fr
+            self.currentLanguage = .en
         }
         
         // Load favorite audiobooks
@@ -299,6 +471,52 @@ class LocalStorageManager: ObservableObject {
             self.favoritePodcasts = purePodcasts
         }
         self.favoriteAudiobooks = loadedBooks
+        
+        // Load per-section subscription favorites
+        var loadedSubsBySection: [String: [Podcast]] = [:]
+        if let data = UserDefaults.standard.data(forKey: "voxstream_fav_subs_by_section"),
+           let loaded = try? JSONDecoder().decode([String: [Podcast]].self, from: data) {
+            loadedSubsBySection = loaded
+        }
+        // Merge any legacy .livres favorites into .culture so the unified Culture section keeps all book & culture favorites
+        var mergedCultureFavs = loadedSubsBySection[SubscriptionSection.culture.rawValue] ?? []
+        let legacyBookFavs = (loadedSubsBySection[SubscriptionSection.livres.rawValue] ?? []) + loadedBooks
+        for book in legacyBookFavs {
+            if !mergedCultureFavs.contains(where: { $0.collectionId == book.collectionId }) {
+                mergedCultureFavs.append(book)
+            }
+        }
+        if !mergedCultureFavs.isEmpty {
+            loadedSubsBySection[SubscriptionSection.culture.rawValue] = mergedCultureFavs
+        }
+        self.favoriteSubscriptionsBySection = loadedSubsBySection
+        
+        if let data = UserDefaults.standard.data(forKey: "voxstream_sub_section_map"),
+           let loaded = try? JSONDecoder().decode([Int: String].self, from: data) {
+            self.subscriptionSectionMap = loaded
+        }
+        
+        if let data = UserDefaults.standard.data(forKey: "voxstream_in_progress_subs_v2"),
+           let loaded = try? JSONDecoder().decode([Int: InProgressSubscriptionState].self, from: data) {
+            self.inProgressByCollection = loaded.filter { key, state in
+                state.episode.collectionId == key && state.positionSeconds >= 5
+            }
+        }
+        
+        if let data = UserDefaults.standard.data(forKey: "voxstream_cancelled_in_progress"),
+           let loaded = try? JSONDecoder().decode([Int].self, from: data) {
+            self.cancelledInProgressIds = loaded
+        }
+        
+        if let data = UserDefaults.standard.data(forKey: "voxstream_cached_subs_by_section"),
+           let loaded = try? JSONDecoder().decode([String: [Podcast]].self, from: data) {
+            self.cachedSubscriptionsBySection = loaded
+        }
+        
+        if let data = UserDefaults.standard.data(forKey: "voxstream_last_sub_fetch_ts"),
+           let loaded = try? JSONDecoder().decode([String: Double].self, from: data) {
+            self.lastSubscriptionFetchTimestamps = loaded
+        }
         
         // Load favorite radios & full radio stations
         if let data = UserDefaults.standard.data(forKey: "voxstream_fav_radios"),
@@ -346,10 +564,10 @@ class LocalStorageManager: ObservableObject {
             self.dismissedEpisodeIds = loaded
         }
         
-        // Load cached episodes and sanitize any future/corrupted dates
+        // Load cached episodes without blocking init on DateFormatter allocations
         if let data = UserDefaults.standard.data(forKey: "voxstream_cached_episodes"),
            let loaded = try? JSONDecoder().decode([Episode].self, from: data) {
-            self.cachedEpisodes = Self.sanitizeEpisodesDates(loaded)
+            self.cachedEpisodes = loaded
         }
         
         // Load downloaded episode IDs
@@ -443,11 +661,99 @@ class LocalStorageManager: ObservableObject {
         }
     }
     
-    // MARK: - App Open Refresh & Episode Sanitization
+    // MARK: - App Open Refresh & Episode Sanitization (Throttled to >= 30 min interval)
     func triggerAppOpenEpisodesRefresh() {
+        // Kept for backward compatibility or explicit reload intent
+        guard cachedEpisodes.isEmpty || shouldRefresh(lastFetch: lastEpisodesFetchDate, minInterval: 30 * 60) else {
+            return
+        }
         DispatchQueue.main.async {
             self.appOpenRefreshTrigger += 1
         }
+    }
+    
+    // MARK: - Hourly Background Refresh (only runs when app is in background)
+    func performBackgroundRefresh(force: Bool = false) async {
+        let favPodcasts = favoritePodcasts.filter { !Self.isAudiobookItem($0) }
+        guard !favPodcasts.isEmpty else { return }
+        if !force {
+            guard shouldRefresh(lastFetch: lastEpisodesFetchDate, minInterval: 50 * 60) else {
+                return
+            }
+        }
+        
+        do {
+            let fetchedEpisodes = try await APIService.shared.fetchEpisodesForPodcasts(favPodcasts, forceRefresh: true)
+            let processed = Self.processRecentFavoriteEpisodes(fetchedEpisodes, from: favPodcasts)
+            
+            await MainActor.run {
+                if !processed.allSorted.isEmpty {
+                    self.updateLatestEpisodeDates(from: processed.allSorted)
+                    self.cachedEpisodes = processed.recentFeed
+                    self.lastEpisodesFetchDate = Date()
+                    self.syncWidgetLatestEpisodes()
+                    WatchSessionManager.shared.syncContextToWatch()
+                }
+            }
+        } catch {
+            print("Background refresh error: \(error)")
+        }
+    }
+    
+    /// Processes raw fetched episodes for favorite podcasts: sanitizes dates, removes profanity, deduplicates,
+    /// sorts newest-first, and builds the recent episodes feed (all episodes from the last 14 days + at least the 3 newest episodes per favorite podcast).
+    static func processRecentFavoriteEpisodes(_ rawEpisodes: [Episode], from favoritePodcasts: [Podcast]) -> (allSorted: [Episode], recentFeed: [Episode]) {
+        let sanitized = Self.sanitizeEpisodesDates(rawEpisodes)
+        let clean = ProfanityFilter.shared.filterCleanEpisodes(sanitized)
+        
+        // Deduplicate by trackId or previewUrl while preserving the first seen item
+        var seenTrackIds = Set<Int>()
+        var seenUrls = Set<String>()
+        var unique: [Episode] = []
+        for ep in clean {
+            let urlKey = (ep.previewUrl ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if seenTrackIds.contains(ep.trackId) { continue }
+            if !urlKey.isEmpty && seenUrls.contains(urlKey) { continue }
+            seenTrackIds.insert(ep.trackId)
+            if !urlKey.isEmpty { seenUrls.insert(urlKey) }
+            unique.append(ep)
+        }
+        
+        // Pre-parse dates once O(N) instead of O(N log N) inside sort comparator
+        var parsedDates: [Int: Date] = [:]
+        parsedDates.reserveCapacity(unique.count)
+        for ep in unique {
+            if let d = DateFormatterUtility.parse(ep.releaseDate) {
+                parsedDates[ep.trackId] = d
+            }
+        }
+        
+        let sorted = unique.sorted { a, b in
+            let dA = parsedDates[a.trackId] ?? .distantPast
+            let dB = parsedDates[b.trackId] ?? .distantPast
+            if dA != dB { return dA > dB }
+            return a.trackId > b.trackId
+        }
+        
+        let now = Date()
+        let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: now) ?? now.addingTimeInterval(-14 * 86400)
+        
+        // Include all episodes published within the last 14 days AND always include at least the 3 latest episodes of every favorite podcast
+        var countPerPodcast: [Int: Int] = [:]
+        var recent: [Episode] = []
+        for ep in sorted {
+            let colId = ep.collectionId ?? 0
+            let currentCount = countPerPodcast[colId, default: 0]
+            let epDate = parsedDates[ep.trackId]
+            let isWithinCutoff = (epDate != nil && epDate! >= cutoff)
+            
+            if isWithinCutoff || currentCount < 3 {
+                recent.append(ep)
+                countPerPodcast[colId] = currentCount + 1
+            }
+        }
+        
+        return (allSorted: sorted, recentFeed: recent)
     }
     
     static func sanitizeEpisodesDates(_ episodes: [Episode]) -> [Episode] {
@@ -478,7 +784,7 @@ class LocalStorageManager: ObservableObject {
     }
     
     func applyLongestPerDayFilter(_ input: [Episode]) -> [Episode] {
-        var grouped: [String: Episode] = [:]
+        var grouped: [String: (episode: Episode, date: Date)] = [:]
         for ep in input {
             guard let collectionId = ep.collectionId,
                   let releaseStr = ep.releaseDate,
@@ -489,18 +795,16 @@ class LocalStorageManager: ObservableObject {
             let time = ep.trackTimeMillis ?? 0
             
             if let existing = grouped[key] {
-                if time > (existing.trackTimeMillis ?? 0) {
-                    grouped[key] = ep
+                if time > (existing.episode.trackTimeMillis ?? 0) {
+                    grouped[key] = (ep, date)
                 }
             } else {
-                grouped[key] = ep
+                grouped[key] = (ep, date)
             }
         }
-        return Array(grouped.values).sorted { a, b in
-            let dateA = DateFormatterUtility.parse(a.releaseDate) ?? .distantPast
-            let dateB = DateFormatterUtility.parse(b.releaseDate) ?? .distantPast
-            return dateA > dateB
-        }
+        return grouped.values
+            .sorted { $0.date > $1.date }
+            .map { $0.episode }
     }
     
     // MARK: - Widget Synchronization (Top 5 Latest Subscribed Episodes)
@@ -517,80 +821,93 @@ class LocalStorageManager: ObservableObject {
     }
     
     func syncWidgetSubscribedPodcasts() {
-        let infos = favoritePodcasts.prefix(15).map { p in
-            WidgetPodcastFeedInfo(
-                collectionId: p.collectionId,
-                collectionName: p.collectionName,
-                artworkUrl: p.artworkUrl600 ?? p.artworkUrl100,
-                feedUrl: p.feedUrl,
-                country: p.country ?? currentLanguage.itunes
-            )
+        let favSnapshot = favoritePodcasts
+        let defaultCountry = currentLanguage.itunes
+        saveQueue.async {
+            let infos = favSnapshot.prefix(15).map { p in
+                WidgetPodcastFeedInfo(
+                    collectionId: p.collectionId,
+                    collectionName: p.collectionName,
+                    artworkUrl: p.artworkUrl600 ?? p.artworkUrl100,
+                    feedUrl: p.feedUrl,
+                    country: p.country ?? defaultCountry
+                )
+            }
+            guard let encoded = try? JSONEncoder().encode(infos) else { return }
+            if let sharedDefaults = UserDefaults(suiteName: "group.com.podcastultra.app") {
+                sharedDefaults.set(encoded, forKey: "widgetSubscribedPodcasts")
+            }
+            if let groupFile = Self.sharedWidgetPodcastsFileURL() {
+                try? encoded.write(to: groupFile, options: .atomic)
+            }
+            try? encoded.write(to: URL(fileURLWithPath: "/tmp/podcastultra_widget_podcasts.json"), options: .atomic)
         }
-        guard let encoded = try? JSONEncoder().encode(infos) else { return }
-        if let sharedDefaults = UserDefaults(suiteName: "group.com.podcastultra.app") {
-            sharedDefaults.set(encoded, forKey: "widgetSubscribedPodcasts")
-            sharedDefaults.synchronize()
-        }
-        if let groupFile = Self.sharedWidgetPodcastsFileURL() {
-            try? encoded.write(to: groupFile, options: .atomic)
-        }
-        try? encoded.write(to: URL(fileURLWithPath: "/tmp/podcastultra_widget_podcasts.json"), options: .atomic)
     }
     
     func syncWidgetLatestEpisodes(from customList: [Episode]? = nil) {
         let rawSource = customList ?? cachedEpisodes
         let dismissed = Set(dismissedEpisodeIds)
+        let longestOnly = customList == nil && settings.longestPerDayOnly
+        let favSnapshot = favoritePodcasts
         
-        // Apply the exact same filtering & ordering as the Episodes tab!
-        var validEpisodes = rawSource.filter { !dismissed.contains($0.trackId) }
-        if customList == nil && settings.longestPerDayOnly {
-            validEpisodes = applyLongestPerDayFilter(validEpisodes)
-        }
-        
-        let sorted = validEpisodes.sorted { a, b in
-            let dateA = DateFormatterUtility.parse(a.releaseDate) ?? .distantPast
-            let dateB = DateFormatterUtility.parse(b.releaseDate) ?? .distantPast
-            return dateA > dateB
-        }
-        
-        let top5 = Array(sorted.prefix(5)).map { ep -> WidgetEpisodePayload in
-            let artwork = ep.artworkUrl160 ?? ep.artworkUrl60 ?? ep.artworkUrl600
-                ?? favoritePodcasts.first(where: { $0.collectionId == ep.collectionId })?.artworkUrl100
-            let mins: Int? = ep.trackTimeMillis.map { max(1, $0 / 60000) }
-            let cleanDate = DateFormatterUtility.parse(ep.releaseDate).map { DateFormatterUtility.formatISO8601($0) } ?? ep.releaseDate
-            return WidgetEpisodePayload(
-                trackId: ep.trackId,
-                trackName: ep.trackName,
-                collectionName: ep.collectionName ?? ep.artistName ?? "Podcast",
-                releaseDate: cleanDate,
-                artworkUrl: artwork,
-                previewUrl: ep.previewUrl,
-                durationMinutes: mins
-            )
-        }
-        
-        guard let encoded = try? JSONEncoder().encode(top5) else { return }
-        
-        // Write synchronously to App Group UserDefaults + App Group container file + /tmp fallback
-        if let sharedDefaults = UserDefaults(suiteName: "group.com.podcastultra.app") {
-            sharedDefaults.set(encoded, forKey: "widgetLatestEpisodes")
-            if let first = top5.first {
-                sharedDefaults.set(first.trackName, forKey: "latestEpisodeTitle")
-                sharedDefaults.set(first.collectionName, forKey: "latestEpisodeSubtitle")
-                sharedDefaults.set(first.artworkUrl ?? "", forKey: "latestEpisodeArtworkUrl")
+        saveQueue.async { [weak self] in
+            guard let self = self else { return }
+            // Apply the exact same filtering & ordering as the Episodes tab!
+            var validEpisodes = rawSource.filter { !dismissed.contains($0.trackId) }
+            if longestOnly {
+                validEpisodes = self.applyLongestPerDayFilter(validEpisodes)
             }
-            sharedDefaults.synchronize()
+            
+            var parsedDates: [Int: Date] = [:]
+            for ep in validEpisodes {
+                if let d = DateFormatterUtility.parse(ep.releaseDate) {
+                    parsedDates[ep.trackId] = d
+                }
+            }
+            
+            let sorted = validEpisodes.sorted { a, b in
+                let dateA = parsedDates[a.trackId] ?? .distantPast
+                let dateB = parsedDates[b.trackId] ?? .distantPast
+                return dateA > dateB
+            }
+            
+            let top5 = Array(sorted.prefix(5)).map { ep -> WidgetEpisodePayload in
+                let artwork = ep.artworkUrl160 ?? ep.artworkUrl60 ?? ep.artworkUrl600
+                    ?? favSnapshot.first(where: { $0.collectionId == ep.collectionId })?.artworkUrl100
+                let mins: Int? = ep.trackTimeMillis.map { max(1, $0 / 60000) }
+                let cleanDate = parsedDates[ep.trackId].map { DateFormatterUtility.formatISO8601($0) } ?? ep.releaseDate
+                return WidgetEpisodePayload(
+                    trackId: ep.trackId,
+                    trackName: ep.trackName,
+                    collectionName: ep.collectionName ?? ep.artistName ?? "Podcast",
+                    releaseDate: cleanDate,
+                    artworkUrl: artwork,
+                    previewUrl: ep.previewUrl,
+                    durationMinutes: mins
+                )
+            }
+            
+            guard let encoded = try? JSONEncoder().encode(top5) else { return }
+            
+            if let sharedDefaults = UserDefaults(suiteName: "group.com.podcastultra.app") {
+                sharedDefaults.set(encoded, forKey: "widgetLatestEpisodes")
+                if let first = top5.first {
+                    sharedDefaults.set(first.trackName, forKey: "latestEpisodeTitle")
+                    sharedDefaults.set(first.collectionName, forKey: "latestEpisodeSubtitle")
+                    sharedDefaults.set(first.artworkUrl ?? "", forKey: "latestEpisodeArtworkUrl")
+                }
+            }
+            if let groupFile = Self.sharedWidgetEpisodesFileURL() {
+                try? encoded.write(to: groupFile, options: .atomic)
+            }
+            try? encoded.write(to: URL(fileURLWithPath: "/tmp/podcastultra_widget_episodes.json"), options: .atomic)
+            
+            #if canImport(WidgetKit) && os(iOS)
+            DispatchQueue.main.async {
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+            #endif
         }
-        if let groupFile = Self.sharedWidgetEpisodesFileURL() {
-            try? encoded.write(to: groupFile, options: .atomic)
-        }
-        try? encoded.write(to: URL(fileURLWithPath: "/tmp/podcastultra_widget_episodes.json"), options: .atomic)
-        
-        #if canImport(WidgetKit) && os(iOS)
-        DispatchQueue.main.async {
-            WidgetCenter.shared.reloadAllTimelines()
-        }
-        #endif
     }
     
     // Update accurate latest episode dates per podcast
@@ -696,7 +1013,7 @@ class LocalStorageManager: ObservableObject {
         
         // Reset local variables
         self.settings = AppSettingsModel()
-        self.currentLanguage = .fr
+        self.currentLanguage = .en
         self.favoritePodcasts = []
         self.favoriteAudiobooks = []
         self.favoriteRadios = []
@@ -735,17 +1052,219 @@ class LocalStorageManager: ObservableObject {
         return favoritePodcasts.contains(where: { $0.collectionId == podcastId })
     }
     
-    // Toggle Favorite Audiobook (Only appears in Books tab)
+    // Toggle Favorite Audiobook / Subscription Item (Only appears in its Subscription section)
     func toggleFavoriteAudiobook(_ book: Podcast) {
-        if favoriteAudiobooks.contains(where: { $0.collectionId == book.collectionId }) {
-            favoriteAudiobooks.removeAll(where: { $0.collectionId == book.collectionId })
-        } else {
-            favoriteAudiobooks.append(book)
-        }
+        let inferredSection = inferSubscriptionSection(for: book)
+        toggleFavoriteSubscription(book, section: inferredSection)
     }
     
     func isFavoriteAudiobook(_ bookId: Int) -> Bool {
-        return favoriteAudiobooks.contains(where: { $0.collectionId == bookId })
+        return isFavoriteSubscription(bookId)
+    }
+    
+    func registerSubscriptionSection(_ section: SubscriptionSection, for items: [Podcast]) {
+        var updated = subscriptionSectionMap
+        var changed = false
+        for item in items {
+            if updated[item.collectionId] != section.rawValue {
+                updated[item.collectionId] = section.rawValue
+                changed = true
+            }
+        }
+        if changed {
+            subscriptionSectionMap = updated
+        }
+    }
+    
+    func inferSubscriptionSection(for item: Podcast) -> SubscriptionSection {
+        if let mapped = subscriptionSectionMap[item.collectionId],
+           let sec = SubscriptionSection(rawValue: mapped) {
+            return sec == .enfants ? .enfants : .culture
+        }
+        if (favoriteSubscriptionsBySection[SubscriptionSection.enfants.rawValue] ?? []).contains(where: { $0.collectionId == item.collectionId }) {
+            return .enfants
+        }
+        let src = (item.source ?? "").lowercased()
+        if ["storynory", "enfants", "kids", "taleming", "comptines", "berceuses", "quelle histoire", "bayard jeunesse", "école des loisirs", "jeunesse"].contains(src) {
+            return .enfants
+        }
+        return .culture
+    }
+    
+    func favoritesForSubscriptionSection(_ section: SubscriptionSection) -> [Podcast] {
+        if section == .culture || section == .livres {
+            var combined = favoriteSubscriptionsBySection[SubscriptionSection.culture.rawValue] ?? []
+            let extraBooks = (favoriteSubscriptionsBySection[SubscriptionSection.livres.rawValue] ?? []) + favoriteAudiobooks
+            for b in extraBooks {
+                if !combined.contains(where: { $0.collectionId == b.collectionId }) {
+                    combined.append(b)
+                }
+            }
+            return combined
+        }
+        return favoriteSubscriptionsBySection[section.rawValue] ?? []
+    }
+    
+    /// Returns favorites for the given section with in-progress items placed on the left
+    func sortedFavorites(for section: SubscriptionSection) -> [Podcast] {
+        let favs = favoritesForSubscriptionSection(section)
+        var inProgress: [(state: InProgressSubscriptionState, podcast: Podcast)] = []
+        var others: [Podcast] = []
+        
+        for item in favs {
+            if let state = getInProgressState(for: item) {
+                inProgress.append((state, item))
+            } else {
+                others.append(item)
+            }
+        }
+        
+        inProgress.sort { $0.state.updatedAt > $1.state.updatedAt }
+        return inProgress.map { $0.podcast } + others
+    }
+    
+    func isFavoriteSubscription(_ collectionId: Int, in section: SubscriptionSection? = nil) -> Bool {
+        if let section = section {
+            return favoritesForSubscriptionSection(section).contains(where: { $0.collectionId == collectionId })
+        }
+        if favoriteAudiobooks.contains(where: { $0.collectionId == collectionId }) {
+            return true
+        }
+        for sec in SubscriptionSection.allCases {
+            if (favoriteSubscriptionsBySection[sec.rawValue] ?? []).contains(where: { $0.collectionId == collectionId }) {
+                return true
+            }
+        }
+        return false
+    }
+    
+    func toggleFavoriteSubscription(_ item: Podcast, section: SubscriptionSection? = nil) {
+        let rawSection = section ?? inferSubscriptionSection(for: item)
+        let targetSection: SubscriptionSection = (rawSection == .enfants) ? .enfants : .culture
+        var map = subscriptionSectionMap
+        map[item.collectionId] = targetSection.rawValue
+        subscriptionSectionMap = map
+        
+        var dict = favoriteSubscriptionsBySection
+        var list = favoritesForSubscriptionSection(targetSection)
+        if list.contains(where: { $0.collectionId == item.collectionId }) {
+            list.removeAll(where: { $0.collectionId == item.collectionId })
+            if targetSection == .culture {
+                var booksList = dict[SubscriptionSection.livres.rawValue] ?? []
+                booksList.removeAll(where: { $0.collectionId == item.collectionId })
+                dict[SubscriptionSection.livres.rawValue] = booksList
+                favoriteAudiobooks.removeAll(where: { $0.collectionId == item.collectionId })
+            }
+        } else {
+            list.append(item)
+        }
+        dict[targetSection.rawValue] = list
+        favoriteSubscriptionsBySection = dict
+    }
+    
+    // MARK: - In-Progress ("En cours") Tracking, Resume & Cancel
+    func recordInProgress(episode: Episode, positionSeconds: Double, durationSeconds: Double) {
+        guard let colId = episode.collectionId else { return }
+        let dur = durationSeconds > 0 ? durationSeconds : Double(episode.trackTimeMillis ?? 0) / 1000.0
+        let pos = max(5.0, positionSeconds)
+        
+        DispatchQueue.main.async {
+            if self.cancelledInProgressIds.contains(colId) {
+                self.cancelledInProgressIds.removeAll(where: { $0 == colId })
+            }
+            var updated = self.inProgressByCollection
+            updated[colId] = InProgressSubscriptionState(
+                collectionId: colId,
+                episode: episode,
+                positionSeconds: pos,
+                durationSeconds: dur,
+                updatedAt: Date()
+            )
+            self.inProgressByCollection = updated
+        }
+    }
+    
+    func updateInProgressPositionQuietly(episode: Episode, positionSeconds: Double, durationSeconds: Double) {
+        guard let colId = episode.collectionId, !cancelledInProgressIds.contains(colId) else { return }
+        // Only trigger @Published if this collection wasn't marked in-progress yet;
+        // otherwise getSavedPosition() already provides the live position without invalidating all SwiftUI views!
+        if inProgressByCollection[colId] == nil {
+            let dur = durationSeconds > 0 ? durationSeconds : Double(episode.trackTimeMillis ?? 0) / 1000.0
+            var updated = inProgressByCollection
+            updated[colId] = InProgressSubscriptionState(
+                collectionId: colId,
+                episode: episode,
+                positionSeconds: max(5.0, positionSeconds),
+                durationSeconds: dur,
+                updatedAt: Date()
+            )
+            inProgressByCollection = updated
+        }
+    }
+    
+    func clearInProgressIfFinished(collectionId: Int, finishedEpisodeId: Int) {
+        DispatchQueue.main.async {
+            if self.inProgressByCollection[collectionId]?.episode.trackId == finishedEpisodeId {
+                var updated = self.inProgressByCollection
+                updated.removeValue(forKey: collectionId)
+                self.inProgressByCollection = updated
+            }
+        }
+    }
+    
+    func getInProgressState(for podcast: Podcast) -> InProgressSubscriptionState? {
+        let colId = podcast.collectionId
+        if cancelledInProgressIds.contains(colId) {
+            return nil
+        }
+        
+        // Strictly check explicit inProgressByCollection dictionary for this exact collectionId
+        // (avoids false-positive "en cours" badges caused by RSS episode ID collisions or shared history)
+        guard var state = inProgressByCollection[colId],
+              state.episode.collectionId == colId else {
+            return nil
+        }
+        
+        let savedPos = getSavedPosition(for: state.episode.trackId)
+        if savedPos > state.positionSeconds {
+            state.positionSeconds = savedPos
+        }
+        
+        guard state.positionSeconds >= 5.0 else {
+            return nil
+        }
+        
+        let dur = state.durationSeconds > 0 ? state.durationSeconds : Double(state.episode.trackTimeMillis ?? 0) / 1000.0
+        if dur <= 0 || state.positionSeconds < dur - 5 {
+            return state
+        }
+        
+        return nil
+    }
+    
+    func cancelInProgress(for podcast: Podcast) {
+        let colId = podcast.collectionId
+        if !cancelledInProgressIds.contains(colId) {
+            cancelledInProgressIds.append(colId)
+        }
+        if inProgressByCollection[colId] != nil {
+            var updated = inProgressByCollection
+            if let epId = updated[colId]?.episode.trackId {
+                savedPositions.removeValue(forKey: String(epId))
+            }
+            updated.removeValue(forKey: colId)
+            inProgressByCollection = updated
+        }
+        for ep in history where ep.collectionId == colId || ep.collectionName?.lowercased() == podcast.collectionName.lowercased() {
+            savedPositions.removeValue(forKey: String(ep.trackId))
+        }
+        if let cachedEps = APIService.shared.getCachedBookEpisodes(for: colId) {
+            for ep in cachedEps {
+                savedPositions.removeValue(forKey: String(ep.trackId))
+            }
+        }
+        save(savedPositions, forKey: keys.savedPositions)
+        AudioPlayerManager.shared.stopIfPlayingCollection(colId)
     }
     
     // Toggle Favorite Radio (Only appears in Radio tab)
@@ -788,6 +1307,19 @@ class LocalStorageManager: ObservableObject {
         } else {
             playedEpisodeIds.append(episodeId)
         }
+    }
+    
+    func isEpisodeStartedOrPlayed(_ episodeId: Int) -> Bool {
+        if playedEpisodeIds.contains(episodeId) {
+            return true
+        }
+        if getSavedPosition(for: episodeId) > 0 {
+            return true
+        }
+        if history.contains(where: { $0.trackId == episodeId }) {
+            return true
+        }
+        return false
     }
     
     func isPlayedEpisode(_ episodeId: Int) -> Bool {
@@ -871,6 +1403,8 @@ class LocalStorageManager: ObservableObject {
         var lang: String
         var favs: [Podcast]
         var favBooks: [Podcast]?
+        var favSubsBySection: [String: [Podcast]]?
+        var inProgressByCollection: [Int: InProgressSubscriptionState]?
         var radios: [String]
         var radioStations: [RadioStation]?
         var podcastLatestDates: [Int: String]?
@@ -891,6 +1425,8 @@ class LocalStorageManager: ObservableObject {
             lang: self.currentLanguage.rawValue,
             favs: self.favoritePodcasts,
             favBooks: self.favoriteAudiobooks,
+            favSubsBySection: self.favoriteSubscriptionsBySection,
+            inProgressByCollection: self.inProgressByCollection,
             radios: self.favoriteRadios,
             radioStations: self.favoriteRadioStations,
             podcastLatestDates: self.podcastLatestEpisodeDates,
@@ -939,6 +1475,16 @@ class LocalStorageManager: ObservableObject {
         
         if let restoredFavBooks = decodeField([Podcast].self, keys: ["favBooks", "favoriteAudiobooks"]) {
             self.favoriteAudiobooks = restoredFavBooks
+            didRestoreAnything = true
+        }
+        
+        if let restoredSubsBySec = decodeField([String: [Podcast]].self, keys: ["favSubsBySection", "favoriteSubscriptionsBySection"]) {
+            self.favoriteSubscriptionsBySection = restoredSubsBySec
+            didRestoreAnything = true
+        }
+        
+        if let restoredInProgress = decodeField([Int: InProgressSubscriptionState].self, keys: ["inProgressByCollection"]) {
+            self.inProgressByCollection = restoredInProgress
             didRestoreAnything = true
         }
         
@@ -1052,6 +1598,8 @@ extension Color {
 
 struct DateFormatterUtility {
     private static let lock = NSLock()
+    private static var parseCache: [String: Date] = [:]
+    private static var outputCache: [String: String] = [:]
     
     static let iso8601: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
@@ -1114,20 +1662,7 @@ struct DateFormatterUtility {
         return df
     }()
     
-    static let outputFormatters: [String: DateFormatter] = {
-        var dict: [String: DateFormatter] = [:]
-        for lang in LangCode.allCases {
-            let df = DateFormatter()
-            df.locale = Locale(identifier: lang.rawValue)
-            if lang.rawValue.hasPrefix("fr") {
-                df.dateFormat = "d MMM yyyy 'à' HH:mm"
-            } else {
-                df.dateFormat = "d MMM yyyy, HH:mm"
-            }
-            dict[lang.rawValue] = df
-        }
-        return dict
-    }()
+    private static var outputFormatters: [String: DateFormatter] = [:]
     
     static func formatISO8601(_ date: Date) -> String {
         lock.lock()
@@ -1142,10 +1677,29 @@ struct DateFormatterUtility {
     }
     
     static func formatOutput(_ date: Date, lang: String) -> String {
+        let cacheKey = "\(Int(date.timeIntervalSince1970))|\(lang)"
         lock.lock()
         defer { lock.unlock() }
-        let df = outputFormatters[lang] ?? outputFormatters["fr"]!
-        return df.string(from: date)
+        if let cached = outputCache[cacheKey] {
+            return cached
+        }
+        let df: DateFormatter
+        if let existing = outputFormatters[lang] {
+            df = existing
+        } else {
+            let created = DateFormatter()
+            created.locale = Locale(identifier: lang)
+            if lang.hasPrefix("fr") {
+                created.dateFormat = "d MMM yyyy 'à' HH:mm"
+            } else {
+                created.dateFormat = "d MMM yyyy, HH:mm"
+            }
+            outputFormatters[lang] = created
+            df = created
+        }
+        let formatted = df.string(from: date)
+        outputCache[cacheKey] = formatted
+        return formatted
     }
     
     static func parse(_ dateStr: String?) -> Date? {
@@ -1156,6 +1710,10 @@ struct DateFormatterUtility {
         guard !cleaned.isEmpty else { return nil }
         
         lock.lock()
+        if let cached = parseCache[cleaned] {
+            lock.unlock()
+            return cached
+        }
         var parsed: Date? = iso8601.date(from: cleaned) ?? iso8601Fractional.date(from: cleaned)
         if parsed == nil {
             for formatter in formatters {
@@ -1168,7 +1726,11 @@ struct DateFormatterUtility {
         lock.unlock()
         
         guard let rawDate = parsed else { return nil }
-        return sanitizeFutureDate(rawDate)
+        let sanitized = sanitizeFutureDate(rawDate)
+        lock.lock()
+        parseCache[cleaned] = sanitized
+        lock.unlock()
+        return sanitized
     }
     
     /// Ensures no episode ever has a publication date or time in the future

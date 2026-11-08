@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActiveTab {
-    case episodes, discover, audiobooks, radio
+    case podcasts, radio, audiobooks, settings
 }
 
 struct ContentView: View {
@@ -9,11 +9,10 @@ struct ContentView: View {
     @EnvironmentObject var audioPlayer: AudioPlayerManager
     @ObservedObject var storage = LocalStorageManager.shared
     
-    // First tab on launch is now Episodes
-    @State private var selectedTab: ActiveTab = .episodes
+    // First tab on launch is Podcasts (formerly Episodes)
+    @State private var selectedTab: ActiveTab = .podcasts
     @State private var showingPlayerSheet = false
     @State private var showingSearchPanel = false
-    @State private var showingWatchCompanion = false
     @State private var showLaunchScreen = true
     
     var body: some View {
@@ -25,42 +24,40 @@ struct ContentView: View {
                         .ignoresSafeArea()
                     
                     VStack(spacing: 0) {
-                        // Glassmorphic top header
-                        HeaderView(
-                            onOpenSearch: {
-                                HapticManager.shared.trigger(.light)
-                                withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) {
-                                    showingSearchPanel = true
+                        // Glassmorphic top header (Search bar only visible in Découvrir tab)
+                        if selectedTab == .audiobooks {
+                            HeaderView(
+                                onOpenSearch: {
+                                    HapticManager.shared.trigger(.light)
+                                    withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) {
+                                        showingSearchPanel = true
+                                    }
                                 }
-                            },
-                            onOpenWatch: {
-                                HapticManager.shared.trigger(.light)
-                                showingWatchCompanion = true
-                            }
-                        )
+                            )
+                        }
                         
-                        // Main View Content switcher
+                        // Main View Content switcher: Favoris, Découvrir, Radio, Paramètres
                         Group {
                             switch selectedTab {
-                            case .episodes:
+                            case .podcasts:
                                 EpisodesView()
-                            case .discover:
-                                DiscoverView()
-                            case .audiobooks:
-                                AudiobooksView()
                             case .radio:
                                 RadioView()
+                            case .audiobooks:
+                                AudiobooksView()
+                            case .settings:
+                                SettingsView()
                             }
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .ipadMaxWidth()
                     }
                     
-                    // Sticky custom glassmorphic bottom navigation bar
+                    // Sticky custom glassmorphic bottom navigation bar (Podcasts, Radio, Lecture, Apprendre, Réglages)
                     CustomBottomNavBar(selectedTab: $selectedTab, showingPlayerSheet: $showingPlayerSheet)
                     
                     // Top-down Search Panel (inverse of Player sheet)
-                    if showingSearchPanel {
+                    if showingSearchPanel && selectedTab == .audiobooks {
                         SearchView(onClose: {
                             withAnimation(.spring(response: 0.32, dampingFraction: 0.88)) {
                                 showingSearchPanel = false
@@ -71,14 +68,10 @@ struct ContentView: View {
                         .zIndex(50)
                     }
                 }
-                .navigationBarHidden(true)
+                .toolbar(.hidden, for: .navigationBar)
                 .ignoresSafeArea(.all, edges: .bottom)
                 .sheet(isPresented: $showingPlayerSheet) {
                     PlayerView()
-                        .environmentObject(audioPlayer)
-                }
-                .sheet(isPresented: $showingWatchCompanion) {
-                    WatchCompanionView()
                         .environmentObject(audioPlayer)
                 }
             }
@@ -96,13 +89,7 @@ struct ContentView: View {
         }
         .preferredColorScheme(storage.isLightTheme ? .light : .dark)
         .tint(storage.accentColorColor())
-        .onChange(of: scenePhase) { newPhase in
-            if newPhase == .active {
-                storage.triggerAppOpenEpisodesRefresh()
-            }
-        }
         .onAppear {
-            storage.triggerAppOpenEpisodesRefresh()
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
                 if showLaunchScreen {
                     withAnimation(.easeInOut(duration: 0.4)) {
@@ -117,7 +104,6 @@ struct ContentView: View {
 struct HeaderView: View {
     @ObservedObject var storage = LocalStorageManager.shared
     var onOpenSearch: () -> Void
-    var onOpenWatch: () -> Void
     
     var body: some View {
         HStack(spacing: 10) {
@@ -143,36 +129,6 @@ struct HeaderView: View {
                 )
             }
             .buttonStyle(PlainButtonStyle())
-            
-            // iWatch Companion Button
-            Button(action: onOpenWatch) {
-                Image(systemName: "applewatch")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(storage.accentColorColor())
-                    .frame(width: 40, height: 40)
-                    .background(storage.subtleSurfaceColor)
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(storage.cardBorderColor, lineWidth: 1)
-                    )
-            }
-            .buttonStyle(PlainButtonStyle())
-            
-            // Settings Button
-            NavigationLink(destination: SettingsView()) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(storage.isLightTheme ? .primary : .secondary)
-                    .frame(width: 40, height: 40)
-                    .background(storage.subtleSurfaceColor)
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(storage.cardBorderColor, lineWidth: 1)
-                    )
-            }
-            .buttonStyle(PlainButtonStyle())
         }
         .ipadMaxWidth()
         .padding(.horizontal)
@@ -193,31 +149,34 @@ struct CustomBottomNavBar: View {
     
     var body: some View {
         HStack(alignment: .center) {
-            // Tab 1: Episodes (Switched to 1st position as requested)
+            // 1. Favoris (formerly Podcasts)
             NavTabButton(
                 icon: "play.rectangle.on.rectangle",
                 label: Translations.shared.t("episodes_feed", storage.currentLanguage),
-                isActive: selectedTab == .episodes,
-                action: { selectedTab = .episodes }
+                isActive: selectedTab == .podcasts,
+                action: { selectedTab = .podcasts }
             )
             
-            // Tab 2: Podcasts (Switched to 2nd position as requested)
+            // 2. Découvrir (formerly Apprendre)
             NavTabButton(
-                icon: "safari",
-                label: Translations.shared.t("discover", storage.currentLanguage),
-                isActive: selectedTab == .discover,
-                action: { selectedTab = .discover }
+                icon: "book.closed",
+                label: Translations.shared.t("audiobooks", storage.currentLanguage),
+                isActive: selectedTab == .audiobooks,
+                action: { selectedTab = .audiobooks }
             )
             
-            // Center floating player button
+            // 3. Center floating player button (Lecteur)
             Button(action: {
                 HapticManager.shared.trigger(.light)
+                if !audioPlayer.isPlaying {
+                    audioPlayer.playLastInProgressOrDefault()
+                }
                 showingPlayerSheet = true
             }) {
                 ZStack {
                     Circle()
                         .fill(audioPlayer.isPlaying ? storage.accentColorColor() : (storage.isLightTheme ? storage.accentColorColor().opacity(0.15) : Color.white.opacity(0.1)))
-                        .frame(width: 54, height: 54)
+                        .frame(width: 52, height: 52)
                         .shadow(color: audioPlayer.isPlaying ? storage.accentColorColor().opacity(0.4) : Color.clear, radius: 10, y: 5)
                         .overlay(
                             Circle()
@@ -235,26 +194,26 @@ struct CustomBottomNavBar: View {
                 }
             }
             .buttonStyle(PlainButtonStyle())
-            .frame(width: 60, height: 60)
+            .frame(width: 56, height: 56)
             
-            // Tab 3: Audiobooks
-            NavTabButton(
-                icon: "book.closed",
-                label: Translations.shared.t("audiobooks", storage.currentLanguage),
-                isActive: selectedTab == .audiobooks,
-                action: { selectedTab = .audiobooks }
-            )
-            
-            // Tab 4: Radio
+            // 4. Radio
             NavTabButton(
                 icon: "radio",
                 label: Translations.shared.t("radio", storage.currentLanguage),
                 isActive: selectedTab == .radio,
                 action: { selectedTab = .radio }
             )
+            
+            // 5. Paramètres (dedicated tab at far right)
+            NavTabButton(
+                icon: "gearshape",
+                label: Translations.shared.t("settings", storage.currentLanguage),
+                isActive: selectedTab == .settings,
+                action: { selectedTab = .settings }
+            )
         }
         .ipadMaxWidth()
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 8)
         .padding(.top, 8)
         .padding(.bottom, safeAreaBottomInset() > 0 ? safeAreaBottomInset() : 16)
         .background(

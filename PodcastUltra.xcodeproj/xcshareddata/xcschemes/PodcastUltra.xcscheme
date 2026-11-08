@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "2720"
-   version = "1.7">
+   version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES"
-      buildArchitectures = "Automatic">
+      buildImplicitDependencies = "YES">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -17,6 +16,35 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "1104A4289102B31B18674F73"
                BuildableName = "PodcastUltra.app"
+               BlueprintName = "PodcastUltra"
+               ReferencedContainer = "container:PodcastUltra.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "94D4AFB5D9DFA589A961739B"
+               BuildableName = "PodcastUltraWatch.app"
+               BlueprintName = "PodcastUltraWatch"
+               ReferencedContainer = "container:PodcastUltra.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "016C19433274A9F8696789E3"
+               BuildableName = "PodcastUltraWidget.appex"
+               BlueprintName = "PodcastUltraWidget"
                ReferencedContainer = "container:PodcastUltra.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -26,8 +54,18 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "YES">
+      shouldUseLaunchSchemeArgsEnv = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "1104A4289102B31B18674F73"
+            BuildableName = "PodcastUltra.app"
+            BlueprintName = "PodcastUltra"
+            ReferencedContainer = "container:PodcastUltra.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <Testables>
+      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -38,14 +76,14 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES"
-      queueDebuggingEnabled = "No">
+      allowLocationSimulation = "YES">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "1104A4289102B31B18674F73"
             BuildableName = "PodcastUltra.app"
+            BlueprintName = "PodcastUltra"
             ReferencedContainer = "container:PodcastUltra.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -62,6 +100,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "1104A4289102B31B18674F73"
             BuildableName = "PodcastUltra.app"
+            BlueprintName = "PodcastUltra"
             ReferencedContainer = "container:PodcastUltra.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

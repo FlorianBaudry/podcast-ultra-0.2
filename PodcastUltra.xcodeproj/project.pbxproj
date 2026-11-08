@@ -11,11 +11,13 @@
 		058074A24988051A19E45755 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE57AC603C32D35962DC68BF /* DownloadManager.swift */; };
 		0ED5DCE87DB5D7CDA134970C /* PodcastUltraWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = C73F8CE5ECB5A221F3FF5A54 /* PodcastUltraWidget.swift */; };
 		19096EF3FFF4D8561D99698D /* WatchSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4CE1280B70E5D5E52B1C51C /* WatchSessionManager.swift */; };
+		1A7F7A4BA5DC70F4880F3CD0 /* KnowledgeFactsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 456A7AC93CFE75A3E29F0A1D /* KnowledgeFactsService.swift */; };
 		1E3EDA05B0B8EAA3CA542FD8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4F86E4D5E16679D67F768D2E /* Assets.xcassets */; };
 		225356009585B368B493F124 /* AudiobooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F914BCDA0F3488FAED4258 /* AudiobooksView.swift */; };
 		2677F5EBC60A49E89AC7A618 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16D18311ED6B07A55CD4987D /* SettingsView.swift */; };
 		286DFB6C44BA186ECBD5630E /* PodcastUltraWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B19F278BAA00A6EAB1E5254A /* PodcastUltraWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		30E21BC1AB916F7175A2163E /* APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A705D7C96823BA8818B065 /* APIService.swift */; };
+		383E2DF7377026A82302A495 /* ProfanityFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5443AE2C92E30F8474A5F0E9 /* ProfanityFilter.swift */; };
 		3F2703F5814C03932DC937F2 /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3BBE76F6E38A2FD9F293B32 /* WeatherService.swift */; };
 		54DAEB30CF1B930B616115C6 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 151F8B5C23896C9D08A904C1 /* PlayerView.swift */; };
 		56E46F31D5506D43FF9D0D07 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9799FCE0438892ECA8EB134C /* ContentView.swift */; };
@@ -28,13 +30,17 @@
 		7535873377C98DE2F7424426 /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39E1E6F0D181FF5579347FDA /* LaunchScreenView.swift */; };
 		77123DA5DBA5417FFB88A67C /* DateFormatterUtility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05C8DEFA0A5AC9F526207164 /* DateFormatterUtility.swift */; };
 		7834D06F90A017EBCDF044AB /* UnifiedSearchResults.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51764BC1D4AA6214F1189CA4 /* UnifiedSearchResults.swift */; };
+		8A943BFFDE2E948CFB3CF428 /* PodcastUltraWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2472039A3D208E92EF3D5888 /* PodcastUltraWatchApp.swift */; };
 		997121346A23F625C9E935B4 /* EpisodesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712BE4B5FDC7E78AFDFF94C0 /* EpisodesView.swift */; };
 		A061DBB0FE31F636E26B2808 /* AudioPlayerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DABAB56ED1E46346F3A7C05E /* AudioPlayerManager.swift */; };
 		AB6E52A3071E4727FBD92713 /* ChromecastManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1CB9BD381368C3C1F5CD35 /* ChromecastManager.swift */; };
+		B99BD76DE1CF2759D5946743 /* RefreshLoadingOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B690520CE08E1AF36BA4E60 /* RefreshLoadingOverlay.swift */; };
 		BBA5B59A1598060E96ACF738 /* PodcastUltraApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73A6097EE87E30C2D19F2471 /* PodcastUltraApp.swift */; };
 		D0CF13B83CBA381A7D013E89 /* Episode.swift in Sources */ = {isa = PBXBuildFile; fileRef = D682829A53666C6559F5F8E7 /* Episode.swift */; };
+		D53DD63DC17A544ACCAA7313 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AAA36C887DC01CABFCCC7511 /* Assets.xcassets */; };
 		DA0FC859C2A006C7FD0663BF /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC54A8E953C0F9048DAF450 /* LibraryView.swift */; };
 		DA87096164607476B8D48E35 /* RadioStation.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE9DA925030AB1292E32A066 /* RadioStation.swift */; };
+		DD5301A401A31B9C9294DB68 /* PodcastUltraWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 70886EF101066B0FC1A7AFE6 /* PodcastUltraWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DE2481F9847DB3C82E384FCC /* Podcast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB96FB0DC6913B77A481A09 /* Podcast.swift */; };
 		E81FCCD0A87071C38BC83CD7 /* WatchCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F84CF5B58D9C42E0B05DA7 /* WatchCompanionView.swift */; };
 		F2221389DF13274D83805C41 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269B3125B9889818E6E1D1CB /* SearchView.swift */; };
@@ -42,6 +48,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		6EF8A64338739EAE664883A1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F2853C7A57F40C5F88F6B8AE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 94D4AFB5D9DFA589A961739B;
+			remoteInfo = PodcastUltraWatch;
+		};
 		CE287BFDFDCDA9D5B5478A30 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F2853C7A57F40C5F88F6B8AE /* Project object */;
@@ -52,6 +65,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		A2B61826C31632DE2920F77D /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				DD5301A401A31B9C9294DB68 /* PodcastUltraWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CB42D4A5A60961E55F20E26A /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -74,23 +98,31 @@
 		151F8B5C23896C9D08A904C1 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
 		1560CE9CAEAF5678033CD732 /* PodcastUltra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PodcastUltra.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		16D18311ED6B07A55CD4987D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		183FEDEA65BE1E1833954209 /* PodcastUltraWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PodcastUltraWatch.entitlements; sourceTree = "<group>"; };
+		2472039A3D208E92EF3D5888 /* PodcastUltraWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastUltraWatchApp.swift; sourceTree = "<group>"; };
 		269B3125B9889818E6E1D1CB /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		2D83473DBC3EC4DE1639B967 /* PodcastUltra.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PodcastUltra.entitlements; sourceTree = "<group>"; };
 		2F1CB9BD381368C3C1F5CD35 /* ChromecastManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromecastManager.swift; sourceTree = "<group>"; };
 		34C5AA039E7D0C29FED9413F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		39E1E6F0D181FF5579347FDA /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
 		41A705D7C96823BA8818B065 /* APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIService.swift; sourceTree = "<group>"; };
+		456A7AC93CFE75A3E29F0A1D /* KnowledgeFactsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeFactsService.swift; sourceTree = "<group>"; };
 		4F86E4D5E16679D67F768D2E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		51764BC1D4AA6214F1189CA4 /* UnifiedSearchResults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedSearchResults.swift; sourceTree = "<group>"; };
+		5443AE2C92E30F8474A5F0E9 /* ProfanityFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfanityFilter.swift; sourceTree = "<group>"; };
+		5AA26D4F0CD1C9551F47171E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5BC54A8E953C0F9048DAF450 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		649065958B6372E76B762E48 /* LocalStorageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStorageManager.swift; sourceTree = "<group>"; };
 		687B51852465DEE0800D6D01 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
+		70886EF101066B0FC1A7AFE6 /* PodcastUltraWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PodcastUltraWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		712BE4B5FDC7E78AFDFF94C0 /* EpisodesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpisodesView.swift; sourceTree = "<group>"; };
 		71C8C47EF5F107B40C96A1C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		73A6097EE87E30C2D19F2471 /* PodcastUltraApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastUltraApp.swift; sourceTree = "<group>"; };
+		7B690520CE08E1AF36BA4E60 /* RefreshLoadingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RefreshLoadingOverlay.swift; sourceTree = "<group>"; };
 		8BB96FB0DC6913B77A481A09 /* Podcast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Podcast.swift; sourceTree = "<group>"; };
 		9799FCE0438892ECA8EB134C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A3BBE76F6E38A2FD9F293B32 /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
+		AAA36C887DC01CABFCCC7511 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B19F278BAA00A6EAB1E5254A /* PodcastUltraWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PodcastUltraWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BCC5A26875B9B68841E38BA9 /* RadioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioView.swift; sourceTree = "<group>"; };
 		C73F8CE5ECB5A221F3FF5A54 /* PodcastUltraWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastUltraWidget.swift; sourceTree = "<group>"; };
@@ -119,6 +151,7 @@
 				0AEE3FE60A5B0747892AC975 /* MarqueeText.swift */,
 				151F8B5C23896C9D08A904C1 /* PlayerView.swift */,
 				BCC5A26875B9B68841E38BA9 /* RadioView.swift */,
+				7B690520CE08E1AF36BA4E60 /* RefreshLoadingOverlay.swift */,
 				269B3125B9889818E6E1D1CB /* SearchView.swift */,
 				16D18311ED6B07A55CD4987D /* SettingsView.swift */,
 				10F84CF5B58D9C42E0B05DA7 /* WatchCompanionView.swift */,
@@ -150,7 +183,9 @@
 				05C8DEFA0A5AC9F526207164 /* DateFormatterUtility.swift */,
 				CE57AC603C32D35962DC68BF /* DownloadManager.swift */,
 				04F4CABA17573C2EF508FCF8 /* HapticManager.swift */,
+				456A7AC93CFE75A3E29F0A1D /* KnowledgeFactsService.swift */,
 				649065958B6372E76B762E48 /* LocalStorageManager.swift */,
+				5443AE2C92E30F8474A5F0E9 /* ProfanityFilter.swift */,
 				E0DC88C9FC05BBD825D35AF8 /* Translations.swift */,
 				D4CE1280B70E5D5E52B1C51C /* WatchSessionManager.swift */,
 				A3BBE76F6E38A2FD9F293B32 /* WeatherService.swift */,
@@ -162,15 +197,28 @@
 			isa = PBXGroup;
 			children = (
 				1560CE9CAEAF5678033CD732 /* PodcastUltra.app */,
+				70886EF101066B0FC1A7AFE6 /* PodcastUltraWatch.app */,
 				B19F278BAA00A6EAB1E5254A /* PodcastUltraWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		C2508EA9EDB44FFF639741F7 /* PodcastUltraWatch */ = {
+			isa = PBXGroup;
+			children = (
+				AAA36C887DC01CABFCCC7511 /* Assets.xcassets */,
+				5AA26D4F0CD1C9551F47171E /* Info.plist */,
+				183FEDEA65BE1E1833954209 /* PodcastUltraWatch.entitlements */,
+				2472039A3D208E92EF3D5888 /* PodcastUltraWatchApp.swift */,
+			);
+			path = PodcastUltraWatch;
 			sourceTree = "<group>";
 		};
 		C98A9771D8399D907DF75F0F = {
 			isa = PBXGroup;
 			children = (
 				6A8EFF4CD6C56B50D448E39F /* PodcastUltra-iOS */,
+				C2508EA9EDB44FFF639741F7 /* PodcastUltraWatch */,
 				F5D545FD492FEE358D8FB77C /* PodcastUltraWidget */,
 				B027AB79CAEC7C33B55D9D51 /* Products */,
 			);
@@ -224,17 +272,37 @@
 				B20B91BF2C405D987CDB5878 /* Sources */,
 				46AE43BBBB3694B2A49B3F94 /* Resources */,
 				CB42D4A5A60961E55F20E26A /* Embed Foundation Extensions */,
+				A2B61826C31632DE2920F77D /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				61F96091CDCA0C6B7B0660F7 /* PBXTargetDependency */,
+				812DA376BBEC9F310CA1E6E3 /* PBXTargetDependency */,
 			);
 			name = PodcastUltra;
 			packageProductDependencies = (
 			);
 			productName = PodcastUltra;
 			productReference = 1560CE9CAEAF5678033CD732 /* PodcastUltra.app */;
+			productType = "com.apple.product-type.application";
+		};
+		94D4AFB5D9DFA589A961739B /* PodcastUltraWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6C3E5B277E748FE5DB96CEB9 /* Build configuration list for PBXNativeTarget "PodcastUltraWatch" */;
+			buildPhases = (
+				2221B4773E92E9BFF9D416CB /* Sources */,
+				36FBD05BE5BEC1C1398D149C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PodcastUltraWatch;
+			packageProductDependencies = (
+			);
+			productName = PodcastUltraWatch;
+			productReference = 70886EF101066B0FC1A7AFE6 /* PodcastUltraWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -244,7 +312,18 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastUpgradeCheck = 2720;
+				TargetAttributes = {
+					016C19433274A9F8696789E3 = {
+						DevelopmentTeam = C7497KG2X3;
+					};
+					1104A4289102B31B18674F73 = {
+						DevelopmentTeam = C7497KG2X3;
+					};
+					94D4AFB5D9DFA589A961739B = {
+						DevelopmentTeam = C7497KG2X3;
+					};
+				};
 			};
 			buildConfigurationList = 265E909F86E797F268AA771A /* Build configuration list for PBXProject "PodcastUltra" */;
 			developmentRegion = en;
@@ -261,12 +340,21 @@
 			projectRoot = "";
 			targets = (
 				1104A4289102B31B18674F73 /* PodcastUltra */,
+				94D4AFB5D9DFA589A961739B /* PodcastUltraWatch */,
 				016C19433274A9F8696789E3 /* PodcastUltraWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		36FBD05BE5BEC1C1398D149C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D53DD63DC17A544ACCAA7313 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		46AE43BBBB3694B2A49B3F94 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -278,6 +366,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2221B4773E92E9BFF9D416CB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A943BFFDE2E948CFB3CF428 /* PodcastUltraWatchApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B20B91BF2C405D987CDB5878 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -295,6 +391,7 @@
 				5C8666E195C4CEF39B802B34 /* EpisodeListView.swift in Sources */,
 				997121346A23F625C9E935B4 /* EpisodesView.swift in Sources */,
 				644A1266EAFF06F73DC287A4 /* HapticManager.swift in Sources */,
+				1A7F7A4BA5DC70F4880F3CD0 /* KnowledgeFactsService.swift in Sources */,
 				7535873377C98DE2F7424426 /* LaunchScreenView.swift in Sources */,
 				DA0FC859C2A006C7FD0663BF /* LibraryView.swift in Sources */,
 				680ADE34719B3E7B7F4D6DC7 /* LocalStorageManager.swift in Sources */,
@@ -302,8 +399,10 @@
 				54DAEB30CF1B930B616115C6 /* PlayerView.swift in Sources */,
 				DE2481F9847DB3C82E384FCC /* Podcast.swift in Sources */,
 				BBA5B59A1598060E96ACF738 /* PodcastUltraApp.swift in Sources */,
+				383E2DF7377026A82302A495 /* ProfanityFilter.swift in Sources */,
 				DA87096164607476B8D48E35 /* RadioStation.swift in Sources */,
 				010CDA50789A212429F98164 /* RadioView.swift in Sources */,
+				B99BD76DE1CF2759D5946743 /* RefreshLoadingOverlay.swift in Sources */,
 				F2221389DF13274D83805C41 /* SearchView.swift in Sources */,
 				2677F5EBC60A49E89AC7A618 /* SettingsView.swift in Sources */,
 				69B996FC10F13538128714B2 /* Translations.swift in Sources */,
@@ -330,6 +429,11 @@
 			target = 016C19433274A9F8696789E3 /* PodcastUltraWidget */;
 			targetProxy = CE287BFDFDCDA9D5B5478A30 /* PBXContainerItemProxy */;
 		};
+		812DA376BBEC9F310CA1E6E3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 94D4AFB5D9DFA589A961739B /* PodcastUltraWatch */;
+			targetProxy = 6EF8A64338739EAE664883A1 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -337,6 +441,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -367,9 +472,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = C7497KG2X3;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -388,7 +496,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -399,9 +507,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PodcastUltraWidget/PodcastUltraWidget.entitlements;
-				DEVELOPMENT_TEAM = C7497KG2X3;
 				INFOPLIST_FILE = PodcastUltraWidget/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -414,10 +521,29 @@
 			};
 			name = Debug;
 		};
+		65A96E81AB748CE4C492B5AE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = PodcastUltraWatch/PodcastUltraWatch.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = PodcastUltraWatch/Info.plist;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.podcastultra.app.watchkitapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 		676DD76C6FF65C88331F704D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -448,9 +574,12 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = C7497KG2X3;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -462,7 +591,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
@@ -473,9 +602,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = PodcastUltraWidget/PodcastUltraWidget.entitlements;
-				DEVELOPMENT_TEAM = C7497KG2X3;
 				INFOPLIST_FILE = PodcastUltraWidget/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -488,6 +616,24 @@
 			};
 			name = Release;
 		};
+		A2CF75B8A271213FD955FA7D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = PodcastUltraWatch/PodcastUltraWatch.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = PodcastUltraWatch/Info.plist;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.podcastultra.app.watchkitapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
 		D08496D7134A24246EE1F462 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -497,10 +643,9 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSETS = "";
-				DEVELOPMENT_TEAM = C7497KG2X3;
 				INFOPLIST_FILE = "PodcastUltra-iOS/Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -522,10 +667,9 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSETS = "";
-				DEVELOPMENT_TEAM = C7497KG2X3;
 				INFOPLIST_FILE = "PodcastUltra-iOS/Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -555,6 +699,15 @@
 			buildConfigurations = (
 				43045755F4A5934BA950C2B8 /* Debug */,
 				676DD76C6FF65C88331F704D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6C3E5B277E748FE5DB96CEB9 /* Build configuration list for PBXNativeTarget "PodcastUltraWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A2CF75B8A271213FD955FA7D /* Debug */,
+				65A96E81AB748CE4C492B5AE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

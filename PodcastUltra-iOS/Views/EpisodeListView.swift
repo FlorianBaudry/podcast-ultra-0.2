@@ -36,16 +36,22 @@ struct EpisodeListView: View {
                 // Header Area
                 VStack(alignment: .center, spacing: 16) {
                     ZStack(alignment: .bottomTrailing) {
-                        CachedAsyncImage(url: URL(string: podcast.artworkUrl600 ?? podcast.artworkUrl100 ?? ""), maxPixelSize: 400) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            ZStack {
-                                Color.primary.opacity(0.07)
-                                Image(systemName: effectiveIsAudiobook ? "book.fill" : "music.note")
-                                    .font(.system(size: 50))
-                                    .foregroundColor(.secondary.opacity(0.3))
+                        Group {
+                            if effectiveIsAudiobook {
+                                SubscriptionArtworkView(book: podcast, section: storage.inferSubscriptionSection(for: podcast))
+                            } else {
+                                CachedAsyncImage(url: URL(string: podcast.artworkUrl600 ?? podcast.artworkUrl100 ?? ""), maxPixelSize: 400) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    ZStack {
+                                        Color.primary.opacity(0.07)
+                                        Image(systemName: "music.note")
+                                            .font(.system(size: 50))
+                                            .foregroundColor(.secondary.opacity(0.3))
+                                    }
+                                }
                             }
                         }
                         .frame(width: 200, height: 200)
@@ -104,6 +110,48 @@ struct EpisodeListView: View {
                             .background(storage.subtleSurfaceColor)
                             .cornerRadius(10)
                             .padding(.top, 2)
+                        }
+                        
+                        // In-Progress Resume ("Reprendre") & Cancel ("Annuler") buttons
+                        if let inProg = storage.getInProgressState(for: podcast) {
+                            HStack(spacing: 10) {
+                                Button(action: {
+                                    HapticManager.shared.trigger(.medium)
+                                    audioPlayer.resumeSubscription(podcast)
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 12, weight: .black))
+                                        Text(storage.currentLanguage == .fr ? "Reprendre (\(inProg.formattedPosition))" : "Resume (\(inProg.formattedPosition))")
+                                            .font(.system(size: 13, weight: .bold))
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 9)
+                                    .padding(.horizontal, 18)
+                                    .background(storage.accentColorColor())
+                                    .cornerRadius(12)
+                                }
+                                
+                                Button(action: {
+                                    HapticManager.shared.trigger(.light)
+                                    withAnimation {
+                                        storage.cancelInProgress(for: podcast)
+                                    }
+                                }) {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.system(size: 12, weight: .bold))
+                                        Text(storage.currentLanguage == .fr ? "Annuler" : "Cancel")
+                                            .font(.system(size: 13, weight: .bold))
+                                    }
+                                    .foregroundColor(.secondary)
+                                    .padding(.vertical, 9)
+                                    .padding(.horizontal, 14)
+                                    .background(storage.subtleSurfaceColor)
+                                    .cornerRadius(12)
+                                }
+                            }
+                            .padding(.top, 4)
                         }
                     }
                     

@@ -245,7 +245,7 @@ struct SearchView: View {
                 isSearchFieldFocused = true
             }
         }
-        .onChange(of: searchInput) { newValue in
+        .onChange(of: searchInput) { _, newValue in
             let trimmed = newValue.trimmingCharacters(in: .whitespaces)
             if trimmed.count >= 2 {
                 performSearch(term: trimmed, debounce: true)

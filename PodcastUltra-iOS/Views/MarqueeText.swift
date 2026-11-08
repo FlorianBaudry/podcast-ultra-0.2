@@ -61,7 +61,7 @@ struct MarqueeText: View {
                 if isVisible { restartAnimation() }
             }
         }
-        .onChange(of: text) { _ in
+        .onChange(of: text) { _, _ in
             if isVisible { restartAnimation() }
         }
         .onAppear {

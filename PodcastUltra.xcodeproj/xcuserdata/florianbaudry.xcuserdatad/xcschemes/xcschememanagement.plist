@@ -9,6 +9,11 @@
 			<key>orderHint</key>
 			<integer>0</integer>
 		</dict>
+		<key>PodcastUltraWatch.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>0</integer>
+		</dict>
 		<key>PodcastUltraWidget.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
@@ -23,6 +28,11 @@
 			<true/>
 		</dict>
 		<key>1104A4289102B31B18674F73</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>A10000000000000000000010</key>
 		<dict>
 			<key>primary</key>
 			<true/>

@@ -76,23 +76,45 @@ class AudioPlayerManager: ObservableObject {
         }
     }
     
+    private var isAudioSessionActive = false
+    private let audioSessionQueue = DispatchQueue(label: "com.podcastultra.audiosession", qos: .userInitiated)
+    
     private func setupAudioSession() {
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .spokenAudio, options: [.allowAirPlay, .allowBluetoothA2DP])
-            try session.setActive(true)
-        } catch {
-            print("Failed to setup audio session: \(error)")
+        audioSessionQueue.async {
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, mode: .spokenAudio, options: [.allowAirPlay, .allowBluetoothA2DP])
+            } catch {
+                print("Failed to setup audio session category: \(error)")
+            }
         }
     }
     
     private func ensureAudioSessionActive() {
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .spokenAudio, options: [.allowAirPlay, .allowBluetoothA2DP])
-            try session.setActive(true)
-        } catch {
-            print("AudioSession activation warning: \(error)")
+        guard !isAudioSessionActive else { return }
+        audioSessionQueue.async {
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, mode: .spokenAudio, options: [.allowAirPlay, .allowBluetoothA2DP])
+                if #available(iOS 17.0, *) {
+                    if #available(iOS 27.0, *) {
+                        session.activate(options: []) { success, error in
+                            if let error = error {
+                                print("AudioSession async activation error: \(error)")
+                            } else {
+                                self.isAudioSessionActive = success
+                            }
+                        }
+                    } else {
+                        // Fallback on earlier versions
+                    }
+                } else {
+                    try session.setActive(true)
+                    self.isAudioSessionActive = true
+                }
+            } catch {
+                print("AudioSession activation warning: \(error)")
+            }
         }
     }
     
@@ -175,7 +197,7 @@ class AudioPlayerManager: ObservableObject {
         }
     }
     
-    func playEpisode(_ episode: Episode) {
+    func playEpisode(_ episode: Episode, exactResumeTime: Double? = nil) {
         beginBackgroundTransitionTask()
         self.currentEpisode = episode
         self.currentRadio = nil
@@ -198,12 +220,25 @@ class AudioPlayerManager: ObservableObject {
         let settings = LocalStorageManager.shared.settings
         var startTime: Double = 0.0
         let savedPos = LocalStorageManager.shared.getSavedPosition(for: episode.trackId)
-        if savedPos > 5 {
+        if let exact = exactResumeTime, exact > 0 {
+            startTime = exact
+        } else if savedPos > 0 {
             startTime = savedPos
         } else if settings.skipIntro {
             startTime = 30.0
         }
         self.progress.currentTime = startTime
+        
+        // Record initial position (at least 1s) immediately when playback starts so the "Non lu" filter knows this episode has been started
+        let initialRecordedPos = max(startTime, 1.0)
+        LocalStorageManager.shared.setSavedPosition(initialRecordedPos, for: episode.trackId, flushImmediately: true)
+        
+        // Record in-progress state for Subscriptions / Audiobooks / Podcasts
+        LocalStorageManager.shared.recordInProgress(
+            episode: episode,
+            positionSeconds: initialRecordedPos,
+            durationSeconds: self.progress.duration
+        )
         
         let resolvedURL: String
         let localURL = DownloadManager.shared.fileURL(for: episode.trackId)
@@ -223,8 +258,66 @@ class AudioPlayerManager: ObservableObject {
         endBackgroundTransitionTask()
     }
     
+    func isSubscriptionPlaying(_ podcast: Podcast) -> Bool {
+        guard isPlaying else { return false }
+        if currentEpisode?.collectionId == podcast.collectionId { return true }
+        if let state = LocalStorageManager.shared.getInProgressState(for: podcast),
+           currentEpisode?.trackId == state.episode.trackId {
+            return true
+        }
+        return false
+    }
+    
+    func toggleSubscriptionPlayback(_ podcast: Podcast) {
+        if isSubscriptionPlaying(podcast) {
+            togglePlayPause()
+        } else {
+            resumeSubscription(podcast)
+        }
+    }
+    
+    func resumeSubscription(_ podcast: Podcast) {
+        if let state = LocalStorageManager.shared.getInProgressState(for: podcast) {
+            if currentEpisode?.trackId == state.episode.trackId, player != nil {
+                let targetTime = max(progress.currentTime, state.positionSeconds)
+                seek(to: targetTime)
+                if !isPlaying {
+                    resume()
+                }
+                return
+            }
+            playEpisode(state.episode, exactResumeTime: state.positionSeconds)
+            return
+        }
+        
+        // Fallback: load episodes for this item and play the first one with saved position or first episode
+        Task {
+            let eps = (try? await APIService.shared.getPodcastEpisodes(
+                collectionId: podcast.collectionId,
+                preferredCountry: LocalStorageManager.shared.currentLanguage.itunes,
+                feedUrl: podcast.feedUrl
+            )) ?? []
+            guard !eps.isEmpty else { return }
+            await MainActor.run {
+                if let savedEp = eps.first(where: { LocalStorageManager.shared.getSavedPosition(for: $0.trackId) > 0 }) {
+                    let pos = LocalStorageManager.shared.getSavedPosition(for: savedEp.trackId)
+                    self.playEpisode(savedEp, exactResumeTime: pos)
+                } else if let first = eps.first {
+                    self.playEpisode(first)
+                }
+            }
+        }
+    }
+    
+    func stopIfPlayingCollection(_ collectionId: Int) {
+        guard playbackType == "podcast", currentEpisode?.collectionId == collectionId else { return }
+        player?.pause()
+        isPlaying = false
+    }
+    
     func playRadio(_ radio: RadioStation) {
         beginBackgroundTransitionTask()
+        let directURL = APIService.shared.cleanAdFreeRadioURL(name: radio.name, rawURL: radio.url)
         self.currentRadio = radio
         self.currentEpisode = nil
         self.playbackType = "radio"
@@ -233,9 +326,9 @@ class AudioPlayerManager: ObservableObject {
         self.currentSubtitle = radio.country ?? "Radio Direct"
         self.progress.currentTime = 0.0
         self.progress.duration = 0.0
-        self.currentStreamURLString = radio.url
+        self.currentStreamURLString = directURL
         
-        playURL(radio.url, initialSeekTime: 0)
+        playURL(directURL, initialSeekTime: 0)
         updateWidgetState()
         WatchSessionManager.shared.syncContextToWatch()
         endBackgroundTransitionTask()
@@ -282,14 +375,18 @@ class AudioPlayerManager: ObservableObject {
             return
         }
         
+        let sanitizedUrlString = urlString
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "&amp;", with: "&")
+        
         let url: URL
-        if urlString.hasPrefix("/") || urlString.hasPrefix("file://") {
-            let cleanPath = urlString.replacingOccurrences(of: "file://", with: "")
+        if sanitizedUrlString.hasPrefix("/") || sanitizedUrlString.hasPrefix("file://") {
+            let cleanPath = sanitizedUrlString.replacingOccurrences(of: "file://", with: "")
             url = URL(fileURLWithPath: cleanPath)
-        } else if let directURL = URL(string: urlString) {
+        } else if let directURL = URL(string: sanitizedUrlString) {
             url = directURL
         } else {
-            guard let encodedUrlString = urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+            guard let encodedUrlString = sanitizedUrlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
                   let parsedURL = URL(string: encodedUrlString) else { return }
             url = parsedURL
         }
@@ -297,7 +394,24 @@ class AudioPlayerManager: ObservableObject {
         removeTimeObserver()
         removeItemObservers()
         
-        let asset = AVURLAsset(url: url)
+        let asset: AVURLAsset
+        if playbackType == "radio" && !url.isFileURL {
+            // Use a clean Icecast User-Agent to avoid Adswizz mobile pre-roll ad injection
+            let headers: [String: String] = [
+                "Icy-MetaData": "0",
+                "User-Agent": "VLC/3.0.20 LibVLC/3.0.20"
+            ]
+            asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": headers])
+        } else if !url.isFileURL {
+            // Standard podcast HTTP headers (prevents CDN 403 / anti-scraping blocks on College de France, Radio France, Akamai)
+            let podcastHeaders: [String: String] = [
+                "User-Agent": "PodcastUltra/1.0 (iPhone; iOS; AppleCoreMedia)",
+                "Accept": "*/*"
+            ]
+            asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFieldsKey": podcastHeaders])
+        } else {
+            asset = AVURLAsset(url: url)
+        }
         let item = AVPlayerItem(asset: asset)
         item.preferredForwardBufferDuration = 120 // Buffer 2 minutes ahead for reliable background playback
         self.playerItem = item
@@ -372,6 +486,7 @@ class AudioPlayerManager: ObservableObject {
         isPlaying = false
         if playbackType == "podcast", let ep = currentEpisode, progress.currentTime > 0 {
             LocalStorageManager.shared.setSavedPosition(progress.currentTime, for: ep.trackId, flushImmediately: true)
+            LocalStorageManager.shared.recordInProgress(episode: ep, positionSeconds: progress.currentTime, durationSeconds: progress.duration)
         }
         updateNowPlayingInfoPlaybackState()
         updateWidgetState()
@@ -397,11 +512,54 @@ class AudioPlayerManager: ObservableObject {
         if isPlaying {
             pause()
         } else {
-            if player != nil || ChromecastManager.shared.connectedDevice != nil {
-                resume()
-            } else if let latest = LocalStorageManager.shared.cachedEpisodes.first {
-                playEpisode(latest)
+            playLastInProgressOrDefault()
+        }
+    }
+    
+    /// Plays the last episode in progress (or resumes current player item) if nothing is currently playing.
+    func playLastInProgressOrDefault() {
+        guard !isPlaying else { return }
+        
+        // 1. If a player item or Chromecast session is already loaded in memory, resume it directly
+        if (player != nil && (currentEpisode != nil || currentRadio != nil)) || ChromecastManager.shared.connectedDevice != nil {
+            resume()
+            return
+        }
+        
+        let storage = LocalStorageManager.shared
+        
+        // 2. If there is a queued episode waiting in the playlist, start playing the playlist
+        if !queue.isEmpty {
+            let firstQueued = queue.removeFirst()
+            playEpisode(firstQueued)
+            return
+        }
+        
+        // 3. Check listening history (most recent first) for the last played episode
+        if let lastHistoryEp = storage.history.first {
+            let savedPos = storage.getSavedPosition(for: lastHistoryEp.trackId)
+            if savedPos > 0 {
+                playEpisode(lastHistoryEp, exactResumeTime: savedPos)
+            } else {
+                playEpisode(lastHistoryEp)
             }
+            return
+        }
+        
+        // 4. Check inProgressByCollection for the most recently updated in-progress episode
+        if let mostRecentInProgress = storage.inProgressByCollection.values.max(by: { $0.updatedAt < $1.updatedAt }) {
+            let pos = max(mostRecentInProgress.positionSeconds, storage.getSavedPosition(for: mostRecentInProgress.episode.trackId))
+            playEpisode(mostRecentInProgress.episode, exactResumeTime: pos)
+            return
+        }
+        
+        // 5. Fallback: play the most recent unplayed episode from cachedEpisodes (Favoris)
+        let dismissed = Set(storage.dismissedEpisodeIds)
+        let played = Set(storage.playedEpisodeIds)
+        if let latestUnplayed = storage.cachedEpisodes.first(where: { !dismissed.contains($0.trackId) && !played.contains($0.trackId) }) {
+            playEpisode(latestUnplayed)
+        } else if let latest = storage.cachedEpisodes.first(where: { !dismissed.contains($0.trackId) }) ?? storage.cachedEpisodes.first {
+            playEpisode(latest)
         }
     }
     
@@ -416,6 +574,7 @@ class AudioPlayerManager: ObservableObject {
         }
         if playbackType == "podcast", let ep = currentEpisode {
             LocalStorageManager.shared.setSavedPosition(clamped, for: ep.trackId, flushImmediately: true)
+            LocalStorageManager.shared.recordInProgress(episode: ep, positionSeconds: clamped, durationSeconds: progress.duration)
         }
         updateNowPlayingInfoPlaybackState()
     }
@@ -446,6 +605,12 @@ class AudioPlayerManager: ObservableObject {
         } else {
             queue.append(episode)
         }
+        
+        // If nothing is currently playing, immediately start playing the queue
+        if !isPlaying {
+            let nextEp = queue.removeFirst()
+            playEpisode(nextEp)
+        }
     }
     
     func removeFromQueue(at index: Int) {
@@ -470,6 +635,9 @@ class AudioPlayerManager: ObservableObject {
         if playbackType == "podcast", let ep = currentEpisode {
             storage.markPlayedEpisode(ep.trackId)
             storage.setSavedPosition(0, for: ep.trackId, flushImmediately: true)
+            if let colId = ep.collectionId {
+                storage.clearInProgressIfFinished(collectionId: colId, finishedEpisodeId: ep.trackId)
+            }
             if storage.settings.deleteAfterListening {
                 DownloadManager.shared.deleteDownload(episodeId: ep.trackId)
             }
@@ -482,8 +650,29 @@ class AudioPlayerManager: ObservableObject {
             return
         }
         
+        // Fallback: play the next radio station if in radio mode
+        if playbackType == "radio", let currentStation = currentRadio {
+            let stations = !storage.favoriteRadioStations.isEmpty ? storage.favoriteRadioStations : storage.cachedRadioStations
+            if !stations.isEmpty, let idx = stations.firstIndex(where: { $0.id == currentStation.id }) {
+                let nextIdx = (idx + 1) % stations.count
+                playRadio(stations[nextIdx])
+                endBackgroundTransitionTask()
+                return
+            }
+        }
+        
         // Fallback: automatically play the next unplayed episode from cachedEpisodes
         let currentId = currentEpisode?.trackId
+        if let curId = currentId,
+           let curIdx = storage.cachedEpisodes.firstIndex(where: { $0.trackId == curId }) {
+            let remaining = storage.cachedEpisodes.suffix(from: curIdx + 1)
+            if let nextAfterCurrent = remaining.first(where: { !storage.isPlayedEpisode($0.trackId) && !storage.isDismissedEpisode($0.trackId) })
+                ?? remaining.first(where: { !storage.isDismissedEpisode($0.trackId) }) {
+                playEpisode(nextAfterCurrent)
+                endBackgroundTransitionTask()
+                return
+            }
+        }
         if let nextUnplayed = storage.cachedEpisodes.first(where: {
             $0.trackId != currentId && !storage.isPlayedEpisode($0.trackId) && !storage.isDismissedEpisode($0.trackId)
         }) {
@@ -510,6 +699,61 @@ class AudioPlayerManager: ObservableObject {
         updateWidgetState()
         WatchSessionManager.shared.syncContextToWatch()
         endBackgroundTransitionTask()
+    }
+    
+    func playPreviousTrack() {
+        let storage = LocalStorageManager.shared
+        
+        // Radio mode: switch to the previous station
+        if playbackType == "radio", let currentStation = currentRadio {
+            let stations = !storage.favoriteRadioStations.isEmpty ? storage.favoriteRadioStations : storage.cachedRadioStations
+            if !stations.isEmpty, let idx = stations.firstIndex(where: { $0.id == currentStation.id }) {
+                let prevIdx = (idx - 1 + stations.count) % stations.count
+                playRadio(stations[prevIdx])
+            }
+            return
+        }
+        
+        // Podcast mode: if more than 5 seconds into the current episode, restart it from 0:00
+        if playbackType == "podcast", currentEpisode != nil, progress.currentTime > 5.0 {
+            seek(to: 0)
+            if !isPlaying {
+                resume()
+            }
+            return
+        }
+        
+        // Otherwise play the previous episode from history (putting the current episode at the front of the queue)
+        let currentId = currentEpisode?.trackId
+        if let prevHistoryEp = storage.history.first(where: { $0.trackId != currentId }) {
+            if let currentEp = currentEpisode, !queue.contains(where: { $0.trackId == currentEp.trackId }) {
+                queue.insert(currentEp, at: 0)
+            }
+            playEpisode(prevHistoryEp)
+            return
+        }
+        
+        // Or play the previous episode in cachedEpisodes list
+        if let curId = currentId,
+           let curIdx = storage.cachedEpisodes.firstIndex(where: { $0.trackId == curId }),
+           curIdx > 0 {
+            let prevEp = storage.cachedEpisodes[curIdx - 1]
+            if let currentEp = currentEpisode, !queue.contains(where: { $0.trackId == currentEp.trackId }) {
+                queue.insert(currentEp, at: 0)
+            }
+            playEpisode(prevEp)
+            return
+        }
+        
+        // Fallback: restart current episode or start default playback
+        if currentEpisode != nil {
+            seek(to: 0)
+            if !isPlaying {
+                resume()
+            }
+        } else {
+            playLastInProgressOrDefault()
+        }
     }
     
     // Time Observer (1.0s interval, updates only isolated `progress` object)
@@ -540,9 +784,13 @@ class AudioPlayerManager: ObservableObject {
             if self.playbackType == "podcast", let ep = self.currentEpisode {
                 // Save position in background without triggering SwiftUI @Published on LocalStorageManager
                 LocalStorageManager.shared.setSavedPosition(currentSec, for: ep.trackId, flushImmediately: false)
+                if secInt > 0 && secInt % 10 == 0 {
+                    LocalStorageManager.shared.updateInProgressPositionQuietly(episode: ep, positionSeconds: currentSec, durationSeconds: self.progress.duration)
+                }
                 
-                // Mark as played after 60 seconds
-                if !self.hasMarkedPlayed && currentSec > 60 {
+                // Mark as played only when the episode is genuinely finished (within 15s of the end or >= 98% of duration)
+                let totalDur = self.progress.duration > 0 ? self.progress.duration : Double(ep.trackTimeMillis ?? 0) / 1000.0
+                if !self.hasMarkedPlayed && totalDur > 30 && (currentSec >= totalDur - 15.0 || currentSec / totalDur >= 0.98) {
                     self.hasMarkedPlayed = true
                     LocalStorageManager.shared.markPlayedEpisode(ep.trackId)
                 }
@@ -620,6 +868,12 @@ class AudioPlayerManager: ObservableObject {
         commandCenter.nextTrackCommand.addTarget { [weak self] _ in
             guard let self = self else { return .commandFailed }
             self.playNextTrack()
+            return .success
+        }
+        
+        commandCenter.previousTrackCommand.addTarget { [weak self] _ in
+            guard let self = self else { return .commandFailed }
+            self.playPreviousTrack()
             return .success
         }
         

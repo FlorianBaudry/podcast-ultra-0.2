@@ -47,9 +47,9 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Podcast Ultra utilise votre réseau local pour découvrir et diffuser l'audio vers vos appareils Chromecast.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Nous utilisons votre position pour vous afficher la météo locale en rafraîchissant les podcasts.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Nous utilisons votre position pour vous afficher la météo locale en rafraîchissant les podcasts.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Nous utilisons votre position pour vous afficher la météo locale en rafraîchissant les podcasts.</string>
 	<key>UIBackgroundModes</key>
 	<array>
@@ -67,10 +67,10 @@
 	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
 </plist>
